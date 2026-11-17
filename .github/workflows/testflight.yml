@@ -5,16 +5,19 @@ name: TestFlight
 # needed: run it from the Actions tab, or push a tag like v0.1.0.
 #
 # One-time setup:
-#   1. Register the bundle id com.z19r.tihole (developer.apple.com, Identifiers).
-#   2. Create the app in App Store Connect with that bundle id.
-#   3. Create an App Store Connect API key with the Admin role (Users and
+#   1. Create an App Store Connect API key with the Admin role (Users and
 #      Access, Integrations). Admin is what lets Xcode use a cloud-managed
 #      distribution certificate, so no certificate has to be stored here.
-#   4. Add these repository secrets:
+#   2. Add these repository secrets:
 #        ASC_KEY_ID        the key's id
 #        ASC_ISSUER_ID     the issuer id shown above the key list
 #        ASC_PRIVATE_KEY   the contents of the downloaded .p8 file
-#        APPLE_TEAM_ID     your ten-character team id
+#   3. Create the app in App Store Connect with the bundle id
+#      com.z19r.tihole. Apple's API cannot do this part. The first run
+#      registers the bundle id, so run once, create the app, and run again.
+#
+# APPLE_TEAM_ID is optional. Without it the team id is read from the bundle
+# id's prefix.
 #
 # Pull requests that touch this file run the archive step only, to prove the
 # release build still compiles. They never see the secrets.
@@ -27,6 +30,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/testflight.yml
+      - scripts/asc_prepare.py
       - project.yml
 
 permissions:
@@ -54,13 +58,38 @@ jobs:
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: |
           missing=0
-          for name in ASC_KEY_ID ASC_ISSUER_ID APPLE_TEAM_ID ASC_PRIVATE_KEY; do
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_PRIVATE_KEY; do
             if [ -z "${!name}" ]; then
               echo "::error::Repository secret $name is not set"
               missing=1
             fi
           done
           exit "$missing"
+
+      - name: Install the App Store Connect API key
+        if: github.event_name != 'pull_request'
+        env:
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          key="$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
+          # Accept the .p8 pasted as text, or base64-encoded.
+          if printf '%s' "$ASC_PRIVATE_KEY" | grep -q "BEGIN PRIVATE KEY"; then
+            printf '%s\n' "$ASC_PRIVATE_KEY" > "$key"
+          else
+            printf '%s' "$ASC_PRIVATE_KEY" | base64 --decode > "$key"
+          fi
+          chmod 600 "$key"
+          echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
+
+      # Registers the bundle id if needed, resolves TEAM_ID, and stops early
+      # with instructions if the app record does not exist yet.
+      - name: Prepare App Store Connect
+        if: github.event_name != 'pull_request'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet 'pyjwt[crypto]'
+          "$RUNNER_TEMP/venv/bin/python" scripts/asc_prepare.py
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -87,25 +116,9 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/Tihole.xcarchive" \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            DEVELOPMENT_TEAM="${TEAM_ID:-}" \
             CODE_SIGNING_ALLOWED=NO \
             "${version_args[@]}"
-
-      - name: Install the App Store Connect API key
-        if: github.event_name != 'pull_request'
-        env:
-          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/keys"
-          key="$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
-          # Accept the .p8 pasted as text, or base64-encoded.
-          if printf '%s' "$ASC_PRIVATE_KEY" | grep -q "BEGIN PRIVATE KEY"; then
-            printf '%s\n' "$ASC_PRIVATE_KEY" > "$key"
-          else
-            printf '%s' "$ASC_PRIVATE_KEY" | base64 --decode > "$key"
-          fi
-          chmod 600 "$key"
-          echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
 
       - name: Sign and upload to App Store Connect
         if: github.event_name != 'pull_request'
@@ -120,7 +133,7 @@ jobs:
             <key>destination</key>
             <string>upload</string>
             <key>teamID</key>
-            <string>${APPLE_TEAM_ID}</string>
+            <string>${TEAM_ID}</string>
             <key>signingStyle</key>
             <string>automatic</string>
             <key>manageAppVersionAndBuildNumber</key>
