@@ -78,6 +78,12 @@ final class AppModel {
     @ObservationIgnored private var partyTimer: Timer?
 
     init() {
+        #if DEBUG
+        // UI tests launch with this flag so every run starts at onboarding.
+        if ProcessInfo.processInfo.arguments.contains("--reset-state") {
+            ConfigStore.reset()
+        }
+        #endif
         config = ConfigStore.load()
         rebuildClient()
     }

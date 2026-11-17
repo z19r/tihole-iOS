@@ -1,6 +1,6 @@
 # tihole for iOS
 
-[![CI](https://github.com/z19r/tihole-ios/actions/workflows/ci.yml/badge.svg)](https://github.com/z19r/tihole-ios/actions/workflows/ci.yml)
+[![CI](https://github.com/z19r/tihole-iOS/actions/workflows/ci.yml/badge.svg)](https://github.com/z19r/tihole-iOS/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A native iOS client for [Pi-hole v6](https://pi-hole.net/), ported from the
@@ -68,8 +68,15 @@ checked in. Run `just gen` again after adding or removing files.
 ```bash
 just test        # PiholeKit + TiholeCore unit tests, on the Mac, no simulator
 just build       # generate the project and build for the iOS Simulator
-just ci          # both, the same as CI
+just ui-test     # drive the app through every tab against a mock Pi-hole
+just ci          # test + build
 ```
+
+The UI smoke test needs no Pi-hole. [`TiholeUITests/MockPihole.swift`](TiholeUITests/MockPihole.swift)
+is a small HTTP server that runs inside the test runner and answers like FTL,
+including rejecting requests without the session id it issued, so the test
+exercises the app's real login path. Each stop is captured as a screenshot in
+the test results; CI uploads them as the `screenshots` artifact.
 
 ### Layout
 
@@ -84,6 +91,7 @@ Tihole/
 ├── Theme/                 semantic color tokens and the built-in themes
 ├── Components/            shared views: cards, banners, form frame, group picker
 └── Screens/               one folder per tab
+TiholeUITests/             end-to-end smoke test and the mock Pi-hole it runs against
 ```
 
 The layering is the same as the TUI's: **the client knows nothing about the

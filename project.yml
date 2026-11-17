@@ -63,12 +63,31 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         ENABLE_PREVIEWS: YES
 
+  # Drives the app end to end against an in-process mock Pi-hole.
+  TiholeUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: TiholeUITests
+    dependencies:
+      - target: Tihole
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.z19r.tihole.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Tihole
+
 schemes:
   Tihole:
     build:
       targets:
         Tihole: all
+        TiholeUITests: [test]
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - TiholeUITests
     archive:
       config: Release
