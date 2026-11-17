@@ -1,0 +1,125 @@
+# tihole for iOS
+
+[![CI](https://github.com/z19r/tihole-ios/actions/workflows/ci.yml/badge.svg)](https://github.com/z19r/tihole-ios/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+A native iOS client for [Pi-hole v6](https://pi-hole.net/), ported from the
+[tihole](https://github.com/z19r/tihole) terminal UI. It is written in SwiftUI
+and covers the same ground as the TUI: query log, allow/deny lists, groups,
+clients, adlists, local DNS, the live FTL config, and system tools, across any
+number of Pi-holes.
+
+## Where everything went
+
+The TUI's ten sidebar screens map onto five tabs, plus a blocking pill that sits
+in every tab's toolbar.
+
+| TUI screen | iOS |
+| --- | --- |
+| Dashboard | **Dashboard** tab: tiles, health gauges, queries-over-time chart, query types, upstreams, top domains / blocked / clients |
+| Blocking | The **blocking pill** in every tab's toolbar. It shows on/off with a live countdown and opens the five blocking actions |
+| Query Log | **Queries** tab: live log, domain filter, detail sheet, swipe to allow or block |
+| Domains | **Lists → Domains**: allow/deny, exact/regex, add, edit, enable/disable, delete |
+| Adlists | **Lists → Adlists**: block/allow lists and a streamed **gravity update** |
+| Groups | **Lists → Groups** |
+| Clients | **Lists → Clients**, with suggestions from devices FTL has seen |
+| Local DNS | **Lists → Local DNS**: A/AAAA host records and CNAMEs |
+| System | **System** tab: info, diagnosis messages, network devices, DNS log tail, destructive actions |
+| Settings | **Settings** tab: connections, theme, and the full FTL config tree |
+
+The instance switcher (`s` in the TUI) is the menu at the top left of every tab.
+
+### What is different from the TUI
+
+- **Polling is slower.** The TUI refreshes four times a second on a LAN. The
+  app refreshes the dashboard every 3 seconds and the query log every 2, and
+  only while that screen is visible and the app is in the foreground.
+- **Groups are picked, not typed.** Forms list the instance's groups with
+  checkmarks instead of asking for comma-separated ids.
+- **List-valued settings get a list editor.** Settings such as `dns.upstreams`
+  are edited row by row. Settings whose value is an object are read-only.
+- **Passwords live in the Keychain.** There is no `config.yaml` and no
+  `password_env`. Instances are added in the app.
+- **No Omarchy theme.** The four built-in themes are the same palettes as the
+  TUI's. `Auto` follows the system appearance.
+
+## Requirements
+
+- Xcode 16 or later
+- iOS 17 or later
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
+- A Pi-hole running v6 (the FTL REST API at `/api`)
+
+## Getting started
+
+```bash
+brew install xcodegen just
+just open        # generates Tihole.xcodeproj and opens it in Xcode
+```
+
+Pick your development team under Signing & Capabilities, then run. On first
+launch the app asks for a name, the Pi-hole's address, and an app password.
+
+The Xcode project is generated from [`project.yml`](project.yml) and is not
+checked in. Run `just gen` again after adding or removing files.
+
+## Development
+
+```bash
+just test        # PiholeKit + TiholeCore unit tests, on the Mac, no simulator
+just build       # generate the project and build for the iOS Simulator
+just ci          # both, the same as CI
+```
+
+### Layout
+
+```
+Packages/TiholeKit/
+├── Sources/PiholeKit/     Pi-hole v6 API client: the only code that speaks HTTP
+├── Sources/TiholeCore/    instance config, formatting, config-tree logic (no UI)
+└── Tests/                 unit tests for both, against a mock FTL server
+Tihole/
+├── App/                   app entry, AppModel, tabs, toolbar chrome, blocking
+├── Store/                 Keychain passwords, saved config
+├── Theme/                 semantic color tokens and the built-in themes
+├── Components/            shared views: cards, banners, form frame, group picker
+└── Screens/               one folder per tab
+```
+
+The layering is the same as the TUI's: **the client knows nothing about the
+UI, and the UI depends on the client, never the reverse.** `PiholeKit` and
+`TiholeCore` import neither SwiftUI nor UIKit, which is why their tests run on
+the host.
+
+- `PiholeClient` is an actor with one method per FTL endpoint. It authenticates
+  with the `X-FTL-SID` header, logs in on demand, and on a 401 re-authenticates
+  once and retries. Concurrent 401s share a single login, so a burst of parallel
+  dashboard fetches never eats more than one of FTL's session seats.
+- `AppModel` is the app's equivalent of the TUI's `AppContext`. It owns the saved
+  config, the active instance's client, the theme, and the blocking status.
+  Screens key their loading tasks on `AppModel.generation`, so switching
+  instances reloads everything.
+- Screens load in `.task`, which SwiftUI cancels when the view goes away. That
+  is the equivalent of the TUI's `Focus()` / `Blur()`.
+
+## Security
+
+- Passwords are stored in the Keychain
+  (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`), one item per instance.
+  The saved config in UserDefaults holds names and URLs only.
+- Passwords and session ids are never logged.
+- The app closes its FTL session when it goes to the background so it does not
+  hold one of the server's session seats, and logs in again on return.
+- "Verify TLS certificate" can be turned off per instance for self-signed
+  certificates. That trust exception applies to that instance's host only.
+- App Transport Security allows arbitrary loads, because Pi-holes are reached
+  over plain HTTP, bare IPs, `.lan` names, and VPN hostnames that cannot be
+  listed ahead of time. The app only ever contacts the instances you configure.
+  App Review asks for a justification of this setting.
+- Restart DNS, flush logs, and flush network need
+  `webserver.api.allow_destructive` enabled on the Pi-hole. The app says so when
+  FTL refuses.
+
+## License
+
+Released under the [MIT License](LICENSE).
