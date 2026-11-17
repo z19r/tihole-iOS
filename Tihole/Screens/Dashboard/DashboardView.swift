@@ -338,6 +338,13 @@ struct DashboardView: View {
                     "Permitted": theme.accent,
                     "Blocked": theme.block,
                 ])
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                        AxisGridLine()
+                        AxisTick()
+                        AxisValueLabel(format: .dateTime.hour())
+                    }
+                }
                 .frame(height: 150)
                 .accessibilityLabel("Queries over time, permitted and blocked")
             }

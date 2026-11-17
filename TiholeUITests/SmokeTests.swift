@@ -54,6 +54,7 @@ final class SmokeTests: XCTestCase {
         let save = app.buttons["instance.save"]
         scrollUntilHittable(save)
         save.tap()
+        dismissSavePasswordPrompt()
 
         // Dashboard.
         XCTAssertTrue(
@@ -66,8 +67,6 @@ final class SmokeTests: XCTestCase {
         // Blocking: disable for five minutes, and the pill starts counting down.
         let pill = app.buttons["blocking.pill"]
         XCTAssertTrue(pill.waitForExistence(timeout: 10))
-        print("DEBUG pill frame=\(pill.frame) hittable=\(pill.isHittable)")
-        print("DEBUG navbars:\n\(app.navigationBars.debugDescription)")
         pill.tap()
         let fiveMinutes = app.buttons["Disable for 5 minutes"]
         XCTAssertTrue(fiveMinutes.waitForExistence(timeout: 10), "blocking sheet did not open")
@@ -165,6 +164,19 @@ final class SmokeTests: XCTestCase {
             app.swipeUp()
         }
         XCTAssertTrue(element.waitForExistence(timeout: 5), "\(element) never appeared")
+    }
+
+    /// iOS may offer to save the instance password to the Passwords app once
+    /// the form goes away. The sheet covers the whole screen, so decline it.
+    private func dismissSavePasswordPrompt() {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        for host in [springboard, app!] {
+            let notNow = host.buttons["Not Now"]
+            if notNow.waitForExistence(timeout: 4) {
+                notNow.tap()
+                return
+            }
+        }
     }
 
     private func goBack() {

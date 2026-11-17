@@ -40,7 +40,6 @@ struct InstanceForm: View {
 
             Section {
                 SecureField(existing == nil ? "App password" : "App password (leave blank to keep)", text: $draft.password)
-                    .textContentType(.password)
                     .accessibilityIdentifier("instance.password")
             } header: {
                 Text("Password")
