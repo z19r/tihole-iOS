@@ -22,4 +22,13 @@ enum ConfigStore {
         }
         defaults.set(data, forKey: key)
     }
+
+    /// Forgets every instance and its Keychain password. UI tests use this to
+    /// start from a clean first-run state.
+    static func reset(defaults: UserDefaults = .standard) {
+        for instance in load(from: defaults).instances {
+            Keychain.deletePassword(for: instance.id)
+        }
+        defaults.removeObject(forKey: key)
+    }
 }

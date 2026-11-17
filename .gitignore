@@ -27,3 +27,7 @@ headroom-content.log
 # OS / editor
 .DS_Store
 *.swp
+
+# UI test results
+TestResults.xcresult
+/screenshots/
