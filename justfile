@@ -36,3 +36,11 @@ ci: test build
 # Re-render the placeholder app icon
 icon:
     python3 scripts/make_icon.py Tihole/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+
+# Run the UI smoke test against the in-process mock Pi-hole
+ui-test: gen
+    xcodebuild test \
+        -project {{ project }} \
+        -scheme {{ scheme }} \
+        -destination "platform=iOS Simulator,id=$(scripts/pick_simulator.py)" \
+        -resultBundlePath TestResults.xcresult

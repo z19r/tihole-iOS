@@ -50,3 +50,43 @@ jobs:
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO
+
+  ui:
+    name: UI smoke test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      # Drives the app through onboarding and every tab against a mock
+      # Pi-hole that runs inside the test runner.
+      - name: Test on the newest iPhone simulator
+        run: |
+          udid="$(scripts/pick_simulator.py)"
+          echo "Using simulator $udid"
+          xcodebuild test \
+            -project Tihole.xcodeproj \
+            -scheme Tihole \
+            -destination "platform=iOS Simulator,id=$udid" \
+            -resultBundlePath TestResults.xcresult
+
+      - name: Export screenshots
+        if: always()
+        run: |
+          xcrun xcresulttool export attachments \
+            --path TestResults.xcresult \
+            --output-path screenshots || true
+          ls -la screenshots || true
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots
+          if-no-files-found: ignore

@@ -24,11 +24,13 @@ struct InstanceForm: View {
                 TextField("Name", text: $draft.name)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .accessibilityIdentifier("instance.name")
                 TextField("http://pi.hole", text: $draft.url)
                     .keyboardType(.URL)
                     .textContentType(.URL)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .accessibilityIdentifier("instance.url")
             } header: {
                 Text("Instance")
             } footer: {
@@ -39,6 +41,7 @@ struct InstanceForm: View {
             Section {
                 SecureField(existing == nil ? "App password" : "App password (leave blank to keep)", text: $draft.password)
                     .textContentType(.password)
+                    .accessibilityIdentifier("instance.password")
             } header: {
                 Text("Password")
             } footer: {
@@ -72,6 +75,7 @@ struct InstanceForm: View {
                     }
                 }
                 .disabled(isTesting)
+                .accessibilityIdentifier("instance.test")
 
                 if let testFailure {
                     ErrorBanner(message: testFailure)
@@ -94,6 +98,7 @@ struct InstanceForm: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                 }
+                .accessibilityIdentifier("instance.save")
             }
             .rowStyle()
         }

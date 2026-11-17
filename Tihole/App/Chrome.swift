@@ -23,6 +23,7 @@ private struct Chrome: ViewModifier {
                     }
                     .accessibilityLabel(blockingAccessibilityLabel)
                     .accessibilityHint("Opens blocking controls")
+                    .accessibilityIdentifier("blocking.pill")
                 }
             }
             .sheet(isPresented: $showingBlocking) {
