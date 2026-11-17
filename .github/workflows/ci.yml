@@ -83,6 +83,21 @@ jobs:
             --output-path screenshots || true
           ls -la screenshots || true
 
+      # TEMPORARY: artifact downloads are not reachable from the session that
+      # is verifying this, so print small JPEGs into the log instead.
+      - name: Dump screenshots to the log
+        if: always()
+        run: |
+          cat screenshots/manifest.json || true
+          for f in screenshots/*.png; do
+            [ -e "$f" ] || continue
+            out="/tmp/$(basename "$f" .png).jpg"
+            sips -Z 760 -s format jpeg -s formatOptions 45 "$f" --out "$out" >/dev/null
+            echo "=====SHOT $(basename "$f")====="
+            base64 -b 76 -i "$out"
+            echo "=====END====="
+          done
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4

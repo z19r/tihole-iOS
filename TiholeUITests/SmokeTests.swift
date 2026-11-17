@@ -62,12 +62,12 @@ final class SmokeTests: XCTestCase {
         )
         XCTAssertTrue(element(labelContaining: "48,213").waitForExistence(timeout: 10))
         snap("02-dashboard")
-        app.swipeUp()
-        snap("03-dashboard-lower")
 
         // Blocking: disable for five minutes, and the pill starts counting down.
         let pill = app.buttons["blocking.pill"]
         XCTAssertTrue(pill.waitForExistence(timeout: 10))
+        print("DEBUG pill frame=\(pill.frame) hittable=\(pill.isHittable)")
+        print("DEBUG navbars:\n\(app.navigationBars.debugDescription)")
         pill.tap()
         let fiveMinutes = app.buttons["Disable for 5 minutes"]
         XCTAssertTrue(fiveMinutes.waitForExistence(timeout: 10), "blocking sheet did not open")
@@ -78,6 +78,8 @@ final class SmokeTests: XCTestCase {
             "blocking did not turn off"
         )
         snap("05-blocking-off")
+        app.swipeUp()
+        snap("03-dashboard-lower")
 
         // Query log.
         app.tabBars.buttons["Queries"].tap()
