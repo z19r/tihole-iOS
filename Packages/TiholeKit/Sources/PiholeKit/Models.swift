@@ -302,19 +302,6 @@ public struct TopClients: Decodable, Sendable, Equatable {
     }
 }
 
-struct RecentBlockedEnvelope: Decodable {
-    var blocked: [String] = []
-
-    enum CodingKeys: String, CodingKey {
-        case blocked
-    }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        blocked = c.lenient(.blocked, default: [])
-    }
-}
-
 // MARK: - History
 
 /// A single timestamped bucket in an `/api/history` response.
@@ -361,58 +348,6 @@ public struct QueryHistory: Decodable, Sendable, Equatable {
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        history = c.lenient(.history, default: [])
-    }
-}
-
-/// Response of `GET /api/history/clients`.
-public struct HistoryClients: Decodable, Sendable, Equatable {
-    public struct ClientInfo: Decodable, Sendable, Equatable {
-        public var name = ""
-        public var total = 0
-
-        public init() {}
-
-        enum CodingKeys: String, CodingKey {
-            case name, total
-        }
-
-        public init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            name = c.lenient(.name, default: "")
-            total = c.lenient(.total, default: 0)
-        }
-    }
-
-    public struct Point: Decodable, Sendable, Equatable {
-        public var timestamp = 0
-        public var data: [String: Int] = [:]
-
-        public init() {}
-
-        enum CodingKeys: String, CodingKey {
-            case timestamp, data
-        }
-
-        public init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            timestamp = c.lenient(.timestamp, default: 0)
-            data = c.lenient(.data, default: [:])
-        }
-    }
-
-    public var clients: [String: ClientInfo] = [:]
-    public var history: [Point] = []
-
-    public init() {}
-
-    enum CodingKeys: String, CodingKey {
-        case clients, history
-    }
-
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        clients = c.lenient(.clients, default: [:])
         history = c.lenient(.history, default: [])
     }
 }
@@ -611,19 +546,6 @@ public struct ManagedDomain: Decodable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// Identifies a domain for batch deletion.
-public struct DomainRef: Encodable, Sendable, Equatable {
-    public var item: String
-    public var type: DomainType
-    public var kind: DomainKind
-
-    public init(item: String, type: DomainType, kind: DomainKind) {
-        self.item = item
-        self.type = type
-        self.kind = kind
-    }
-}
-
 struct DomainsEnvelope: Decodable {
     var domains: [ManagedDomain] = []
 
@@ -664,15 +586,6 @@ public struct PiholeGroup: Decodable, Sendable, Equatable, Identifiable {
         id = c.lenient(.id, default: 0)
         dateAdded = c.lenient(.dateAdded, default: 0)
         dateModified = c.lenient(.dateModified, default: 0)
-    }
-}
-
-/// Identifies a group, client, or other single-key item for batch deletion.
-public struct ItemRef: Encodable, Sendable, Equatable {
-    public var item: String
-
-    public init(item: String) {
-        self.item = item
     }
 }
 
@@ -822,17 +735,6 @@ public struct Adlist: Decodable, Sendable, Equatable, Identifiable {
     }
 
     public var listType: ListType { ListType(rawValue: type) ?? .block }
-}
-
-/// Identifies a list for batch deletion.
-public struct ListRef: Encodable, Sendable, Equatable {
-    public var item: String
-    public var type: ListType
-
-    public init(item: String, type: ListType) {
-        self.item = item
-        self.type = type
-    }
 }
 
 struct ListsEnvelope: Decodable {
@@ -1095,63 +997,63 @@ extension Sensors: Decodable {
 
 /// A local A/AAAA host entry, stored in `dns.hosts` as "IP domain".
 public struct HostRecord: Sendable, Equatable, Hashable, Identifiable {
-    public var ip: String
-    public var domain: String
+    public let ip: String
+    public let domain: String
+    /// The config string exactly as FTL stores it. Deletes send this, so an
+    /// entry with tabs or extra spaces still matches.
+    public let configValue: String
 
     public init(ip: String = "", domain: String = "") {
         self.ip = ip
         self.domain = domain
+        self.configValue = ip + " " + domain
     }
 
-    public var id: String { ip + " " + domain }
-
-    /// The config-string form ("IP domain").
-    public var configValue: String { ip + " " + domain }
+    public var id: String { configValue }
 
     /// Splits an "IP domain" config string. The separator is whitespace; the
     /// domain is everything after the first field.
     public init(configValue: String) {
-        let fields = configValue.split(whereSeparator: { $0.isWhitespace }).map(String.init)
-        switch fields.count {
-        case 0:
-            self.init()
-        case 1:
-            self.init(ip: fields[0])
-        default:
-            self.init(ip: fields[0], domain: fields.dropFirst().joined(separator: " "))
-        }
+        let fields = configValue
+            .split(whereSeparator: { $0.isWhitespace })
+            .map(String.init)
+        ip = fields.first ?? ""
+        domain = fields.dropFirst().joined(separator: " ")
+        self.configValue = configValue
     }
 }
 
 /// A local CNAME entry, stored in `dns.cnameRecords` as "domain,target[,ttl]".
 public struct CNAMERecord: Sendable, Equatable, Hashable, Identifiable {
-    public var domain: String
-    public var target: String
-    public var ttl: Int
+    public let domain: String
+    public let target: String
+    public let ttl: Int
+    /// The config string exactly as FTL stores it. Deletes send this, so an
+    /// entry with spaces after the commas still matches.
+    public let configValue: String
 
+    /// A non-positive ttl is left out of the config string.
     public init(domain: String = "", target: String = "", ttl: Int = 0) {
         self.domain = domain
         self.target = target
         self.ttl = ttl
+        self.configValue = ttl > 0
+            ? "\(domain),\(target),\(ttl)"
+            : "\(domain),\(target)"
     }
 
     public var id: String { configValue }
 
-    /// The config-string form. A non-positive ttl is omitted.
-    public var configValue: String {
-        ttl > 0 ? "\(domain),\(target),\(ttl)" : "\(domain),\(target)"
-    }
-
     /// Splits a "domain,target[,ttl]" config string. A malformed or absent
     /// ttl yields 0.
     public init(configValue: String) {
-        let parts = configValue.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
-        self.init()
-        if parts.count > 0 { domain = parts[0] }
-        if parts.count > 1 { target = parts[1] }
-        if parts.count > 2 {
-            ttl = Int(parts[2].trimmingCharacters(in: .whitespaces)) ?? 0
-        }
+        let parts = configValue
+            .split(separator: ",", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        domain = parts.count > 0 ? parts[0] : ""
+        target = parts.count > 1 ? parts[1] : ""
+        ttl = parts.count > 2 ? Int(parts[2]) ?? 0 : 0
+        self.configValue = configValue
     }
 }
 

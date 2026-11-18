@@ -18,11 +18,6 @@ struct RecordedRequest {
     var json: [String: Any] {
         (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] ?? [:]
     }
-
-    /// The body parsed as any JSON value.
-    var jsonValue: Any? {
-        try? JSONSerialization.jsonObject(with: body, options: [.fragmentsAllowed])
-    }
 }
 
 /// What the mock server answers with.

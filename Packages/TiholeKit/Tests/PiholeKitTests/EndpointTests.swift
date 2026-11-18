@@ -281,17 +281,6 @@ final class DomainsTests: MockFTLTestCase {
         XCTAssertEqual(log.last?.method, "DELETE")
         XCTAssertEqual(log.last?.rawPath, "/api/domains/allow/exact/ok.example.com")
     }
-
-    func testBatchDeleteBody() async throws {
-        let client = await makeAuthedClient(.empty(204))
-
-        try await client.batchDeleteDomains([DomainRef(item: "a.example", type: .deny, kind: .exact)])
-
-        let request = try XCTUnwrap(log.last)
-        XCTAssertEqual(request.rawPath, "/api/domains:batchDelete")
-        let items = try XCTUnwrap(request.jsonValue as? [[String: String]])
-        XCTAssertEqual(items, [["item": "a.example", "type": "deny", "kind": "exact"]])
-    }
 }
 
 final class GroupsClientsListsTests: MockFTLTestCase {
@@ -418,10 +407,20 @@ final class ConfigTests: MockFTLTestCase {
     func testDeleteHostRecordPath() async throws {
         let client = await makeAuthedClient(.empty(204))
 
-        try await client.deleteHostRecord(ip: "fd00::5", domain: "nas.lan")
+        try await client.deleteHostRecord(HostRecord(ip: "fd00::5", domain: "nas.lan"))
 
         XCTAssertEqual(log.last?.method, "DELETE")
         XCTAssertEqual(log.last?.rawPath, "/api/config/dns/hosts/fd00::5%20nas.lan")
+    }
+
+    func testDeleteSendsStoredStringUnchanged() async throws {
+        let client = await makeAuthedClient(.empty(204))
+
+        try await client.deleteHostRecord(HostRecord(configValue: "10.0.0.5\tnas"))
+        XCTAssertEqual(log.last?.rawPath, "/api/config/dns/hosts/10.0.0.5%09nas")
+
+        try await client.deleteCNAMERecord(CNAMERecord(configValue: "a.lan, b.lan"))
+        XCTAssertEqual(log.last?.rawPath, "/api/config/dns/cnameRecords/a.lan%2C%20b.lan")
     }
 
     func testHostRecordsParse() async throws {
@@ -431,10 +430,9 @@ final class ConfigTests: MockFTLTestCase {
 
         let records = try await client.hostRecords()
 
-        XCTAssertEqual(records, [
-            HostRecord(ip: "192.168.1.5", domain: "nas.lan"),
-            HostRecord(ip: "10.0.0.1", domain: "router.lan alias"),
-        ])
+        XCTAssertEqual(records.map(\.ip), ["192.168.1.5", "10.0.0.1"])
+        XCTAssertEqual(records.map(\.domain), ["nas.lan", "router.lan alias"])
+        XCTAssertEqual(records.last?.configValue, "10.0.0.1   router.lan alias")
     }
 
     func testCNAMERecordsParse() async throws {
@@ -444,11 +442,9 @@ final class ConfigTests: MockFTLTestCase {
 
         let records = try await client.cnameRecords()
 
-        XCTAssertEqual(records, [
-            CNAMERecord(domain: "a.lan", target: "b.lan", ttl: 0),
-            CNAMERecord(domain: "c.lan", target: "d.lan", ttl: 300),
-            CNAMERecord(domain: "e.lan", target: "f.lan", ttl: 0),
-        ])
+        XCTAssertEqual(records.map(\.domain), ["a.lan", "c.lan", "e.lan"])
+        XCTAssertEqual(records.map(\.target), ["b.lan", "d.lan", "f.lan"])
+        XCTAssertEqual(records.map(\.ttl), [0, 300, 0])
     }
 
     func testCNAMEWithTTLPath() async throws {
@@ -462,7 +458,7 @@ final class ConfigTests: MockFTLTestCase {
     func testCNAMEOmitsNonPositiveTTL() async throws {
         let client = await makeAuthedClient(.empty(204))
 
-        try await client.deleteCNAMERecord(domain: "a.lan", target: "b.lan", ttl: 0)
+        try await client.deleteCNAMERecord(CNAMERecord(domain: "a.lan", target: "b.lan", ttl: 0))
 
         XCTAssertEqual(log.last?.method, "DELETE")
         XCTAssertEqual(log.last?.rawPath, "/api/config/dns/cnameRecords/a.lan%2Cb.lan")
