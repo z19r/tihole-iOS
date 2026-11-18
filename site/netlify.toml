@@ -1,0 +1,25 @@
+# Netlify settings for tihole-ios.z19r.com. The site's base directory is
+# site/. The build writes src/data.js (version and release feed) from
+# project.yml and CHANGELOG.md.
+
+[build]
+  publish = "."
+  command = "python3 ../scripts/site_data.py"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+[[headers]]
+  for = "/img/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy.html"
+  status = 200
