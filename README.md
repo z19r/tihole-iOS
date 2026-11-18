@@ -127,6 +127,10 @@ the host.
 - Restart DNS, flush logs, and flush network need
   `webserver.api.allow_destructive` enabled on the Pi-hole. The app says so when
   FTL refuses.
+- Every TestFlight build carries a GitHub build provenance attestation for
+  the exact `.ipa` sent to Apple. Download the `Tihole-ipa` artifact from the
+  TestFlight run and check it with
+  `gh attestation verify Tihole.ipa --repo z19r/tihole-iOS`.
 
 ## License
 

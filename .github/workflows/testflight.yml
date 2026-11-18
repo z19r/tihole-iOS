@@ -45,6 +45,11 @@ jobs:
     name: Archive and upload
     runs-on: macos-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      # Build provenance: sign the uploaded .ipa with this run's identity.
+      id-token: write
+      attestations: write
     env:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -120,7 +125,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             "${version_args[@]}"
 
-      - name: Sign and upload to App Store Connect
+      # Export the signed .ipa to disk instead of uploading straight from
+      # xcodebuild, so the exact file Apple receives can be attested.
+      - name: Sign the app
         if: github.event_name != 'pull_request'
         run: |
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
@@ -131,7 +138,7 @@ jobs:
             <key>method</key>
             <string>app-store-connect</string>
             <key>destination</key>
-            <string>upload</string>
+            <string>export</string>
             <key>teamID</key>
             <string>${TEAM_ID}</string>
             <key>signingStyle</key>
@@ -151,6 +158,30 @@ jobs:
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          ipa="$(ls "$RUNNER_TEMP"/export/*.ipa)"
+          echo "IPA=$ipa" >> "$GITHUB_ENV"
+
+      # Verify with: gh attestation verify Tihole.ipa --repo z19r/tihole-iOS
+      - name: Attest build provenance
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ env.IPA }}
+
+      # The attested .ipa, so anyone can download and verify it.
+      - uses: actions/upload-artifact@v7
+        if: github.event_name != 'pull_request'
+        with:
+          name: Tihole-ipa
+          path: ${{ env.IPA }}
+
+      - name: Upload to App Store Connect
+        if: github.event_name != 'pull_request'
+        env:
+          API_PRIVATE_KEYS_DIR: ${{ runner.temp }}/keys
+        run: |
+          xcrun altool --upload-app --type ios --file "$IPA" \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
 
       - name: Remove the API key
         if: always()
