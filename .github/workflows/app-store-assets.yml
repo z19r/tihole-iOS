@@ -30,7 +30,7 @@ concurrency:
 jobs:
   capture:
     name: Capture (${{ matrix.device }})
-    runs-on: macos-latest
+    runs-on: xcode-27
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -87,7 +87,7 @@ jobs:
   frames:
     name: Frame and upload
     needs: capture
-    runs-on: macos-latest
+    runs-on: xcode-27
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -110,6 +110,8 @@ jobs:
             "$RUNNER_TEMP/venv/bin/python" scripts/store_frames.py \
               "$device" "raw/$device" "frames/$device"
           done
+          "$RUNNER_TEMP/venv/bin/python" scripts/store_frames.py \
+            header raw/iphone frames/header
 
       - uses: actions/upload-artifact@v7
         with:
