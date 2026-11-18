@@ -13,6 +13,7 @@ Run by the TestFlight workflow before it archives:
 Environment: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH (the .p8 file), and
 optionally APPLE_TEAM_ID, BUNDLE_ID, APP_NAME.
 """
+
 import json
 import os
 import sys
@@ -67,20 +68,30 @@ def call(token, method, path, body=None):
         try:
             return error.code, json.loads(raw)
         except ValueError:
-            return error.code, {"errors": [{"detail": raw.decode(errors="replace")[:500]}]}
+            return error.code, {
+                "errors": [{"detail": raw.decode(errors="replace")[:500]}]
+            }
 
 
 def describe(payload):
     errors = payload.get("errors") or []
-    return "; ".join(e.get("detail") or e.get("title") or "unknown error" for e in errors) or "no detail"
+    return (
+        "; ".join(
+            e.get("detail") or e.get("title") or "unknown error" for e in errors
+        )
+        or "no detail"
+    )
 
 
 def find_bundle(token):
-    query = urllib.parse.urlencode({"filter[identifier]": BUNDLE_ID, "limit": 200})
+    query = urllib.parse.urlencode(
+        {"filter[identifier]": BUNDLE_ID, "limit": 200}
+    )
     status, payload = call(token, "GET", "/v1/bundleIds?" + query)
     if status == 401:
         fail(
-            "App Store Connect rejected the API key (401). Check that ASC_KEY_ID, "
+            "App Store Connect rejected the API key (401). Check that "
+            "ASC_KEY_ID, "
             "ASC_ISSUER_ID, and ASC_PRIVATE_KEY belong to the same key."
         )
     if status != 200:
@@ -100,12 +111,19 @@ def register_bundle(token):
         {
             "data": {
                 "type": "bundleIds",
-                "attributes": {"identifier": BUNDLE_ID, "name": APP_NAME, "platform": "IOS"},
+                "attributes": {
+                    "identifier": BUNDLE_ID,
+                    "name": APP_NAME,
+                    "platform": "IOS",
+                },
             }
         },
     )
     if status not in (200, 201):
-        fail(f"Could not register bundle id {BUNDLE_ID} ({status}): {describe(payload)}")
+        fail(
+            f"Could not register bundle id {BUNDLE_ID} ({status}): "
+            f"{describe(payload)}"
+        )
     return payload["data"]
 
 
@@ -113,7 +131,9 @@ def app_exists(token):
     query = urllib.parse.urlencode({"filter[bundleId]": BUNDLE_ID})
     status, payload = call(token, "GET", "/v1/apps?" + query)
     if status != 200:
-        fail(f"Could not look up the app record ({status}): {describe(payload)}")
+        fail(
+            f"Could not look up the app record ({status}): {describe(payload)}"
+        )
     return any(
         item.get("attributes", {}).get("bundleId") == BUNDLE_ID
         for item in payload.get("data", [])
@@ -141,15 +161,19 @@ def main():
     if not team_id:
         team_id = (bundle.get("attributes", {}).get("seedId") or "").strip()
     if not team_id:
-        fail("Could not work out the team id. Add it as the APPLE_TEAM_ID repository secret.")
+        fail(
+            "Could not work out the team id. Add it as the APPLE_TEAM_ID "
+            "repository secret."
+        )
     print(f"::add-mask::{team_id}")
     export("TEAM_ID", team_id)
     print("Team id resolved.")
 
     if not app_exists(token):
         fail(
-            f"There is no app record for {BUNDLE_ID} yet, and Apple's API cannot create one. "
-            "In App Store Connect open Apps, tap +, choose New App, pick iOS and the bundle id "
+            f"There is no app record for {BUNDLE_ID} yet, and Apple's API "
+            "cannot create one. In App Store Connect open Apps, tap +, "
+            "choose New App, pick iOS and the bundle id "
             f"{BUNDLE_ID}, then run this workflow again."
         )
     print("App record exists.")

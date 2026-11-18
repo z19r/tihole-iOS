@@ -46,3 +46,13 @@ ui-test: gen
         -scheme {{ scheme }} \
         -destination "platform=iOS Simulator,id=$(scripts/pick_simulator.py)" \
         -resultBundlePath TestResults.xcresult
+
+# Format the Python scripts (80 columns, see ruff.toml)
+fmt:
+    uvx ruff format scripts
+    uvx ruff check --fix scripts
+
+# Fail if the Python scripts are not formatted or lint-clean
+fmt-check:
+    uvx ruff format --check scripts
+    uvx ruff check scripts
