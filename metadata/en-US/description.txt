@@ -1,0 +1,35 @@
+tihole is a native client for Pi-hole v6. See what every device on your
+network is looking up, pause ad blocking for a few minutes, and manage your
+lists from your iPhone or iPad, on as many Pi-holes as you run.
+
+DASHBOARD
+• Total queries, blocked queries, active clients and gravity size, live
+• CPU, memory, temperature and load at a glance, with health warnings
+• Queries over time, query types, upstreams, top domains and top clients
+
+BLOCKING
+• Turn blocking off for 5, 10 or 15 minutes, or until you turn it back on
+• A live countdown in every tab shows when blocking comes back
+
+QUERY LOG
+• A live log of every DNS query, with a domain filter
+• Swipe a query to allow or block its domain
+
+LISTS
+• Allow and deny domains, exact or regex, with groups
+• Adlists, with a streamed gravity update
+• Groups, clients and local DNS records (A, AAAA and CNAME)
+
+SETTINGS AND SYSTEM
+• Search and edit Pi-hole's full FTL configuration
+• System info, diagnosis messages, network devices and the DNS log
+• Restart DNS, flush logs and flush the network table
+
+PRIVATE BY DESIGN
+• Talks only to the Pi-holes you add. No accounts, analytics or tracking.
+• Passwords are kept in the iOS Keychain.
+• Works with HTTPS, self-signed certificates and plain HTTP on your LAN.
+
+tihole needs Pi-hole v6 or later and an app password from its web
+interface. tihole is an independent app and is not affiliated with or
+endorsed by Pi-hole LLC.

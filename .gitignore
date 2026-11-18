@@ -34,3 +34,4 @@ __pycache__/
 # UI test results
 TestResults.xcresult
 /screenshots/
+site/src/data.js
