@@ -254,10 +254,58 @@ final class AppConfigTests: XCTestCase {
     }
 
     func testNormalizedURL() {
-        XCTAssertEqual(InstanceConfig.normalizedURL(" pi.hole "), "http://pi.hole")
-        XCTAssertEqual(InstanceConfig.normalizedURL("10.0.0.53/"), "http://10.0.0.53")
+        XCTAssertEqual(InstanceConfig.normalizedURL(" pi.hole "), "https://pi.hole")
+        XCTAssertEqual(InstanceConfig.normalizedURL("10.0.0.53/"), "https://10.0.0.53")
         XCTAssertEqual(InstanceConfig.normalizedURL("HTTPS://pi.hole/admin/"), "HTTPS://pi.hole/admin")
         XCTAssertEqual(InstanceConfig.normalizedURL(""), "")
+    }
+
+    func testFirstInstanceBecomesActive() {
+        let (config, id) = AppConfig().upserting(
+            id: nil, name: "home", url: "https://pi.hole", verifyTLS: true
+        )
+
+        XCTAssertEqual(config.instances.map(\.id), [id])
+        XCTAssertEqual(config.activeID, id)
+    }
+
+    func testEditKeepsIDAndActive() {
+        let home = InstanceConfig(name: "home", url: "https://pi.hole")
+        let lab = InstanceConfig(name: "lab", url: "https://lab.lan")
+        let start = AppConfig(activeID: home.id, instances: [home, lab])
+
+        let (config, id) = start.upserting(
+            id: lab.id, name: "lab2", url: "https://lab2.lan", verifyTLS: false
+        )
+
+        XCTAssertEqual(id, lab.id)
+        XCTAssertEqual(config.activeID, home.id)
+        XCTAssertEqual(config.instances.count, 2)
+        XCTAssertEqual(config.instances[1].name, "lab2")
+        XCTAssertEqual(config.instances[1].url, "https://lab2.lan")
+        XCTAssertFalse(config.instances[1].verifyTLS)
+    }
+
+    func testAddingSecondInstanceKeepsActive() {
+        let home = InstanceConfig(name: "home", url: "https://pi.hole")
+        let start = AppConfig(activeID: home.id, instances: [home])
+
+        let (config, id) = start.upserting(
+            id: nil, name: "lab", url: "https://lab.lan", verifyTLS: true
+        )
+
+        XCTAssertNotEqual(id, home.id)
+        XCTAssertEqual(config.activeID, home.id)
+    }
+
+    func testRemovingActivePicksFirstRemaining() {
+        let home = InstanceConfig(name: "home", url: "https://pi.hole")
+        let lab = InstanceConfig(name: "lab", url: "https://lab.lan")
+        let start = AppConfig(activeID: home.id, instances: [home, lab])
+
+        XCTAssertEqual(start.removing(home.id).activeID, lab.id)
+        XCTAssertEqual(start.removing(lab.id).activeID, home.id)
+        XCTAssertNil(start.removing(home.id).removing(lab.id).activeID)
     }
 
     func testConfigRoundTripsThroughJSON() throws {

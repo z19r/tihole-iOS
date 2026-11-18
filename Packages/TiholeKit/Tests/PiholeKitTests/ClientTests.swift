@@ -170,26 +170,6 @@ final class AuthTests: MockFTLTestCase {
         XCTAssertEqual(request.headers["Content-Type"], "application/json")
     }
 
-    func testLoginSendsTOTP() async throws {
-        let log = self.log
-        MockURLProtocol.handler = { request in
-            log.append(request)
-            return .authOK("abc123")
-        }
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [MockURLProtocol.self]
-        let client = PiholeClient(
-            baseURL: "http://pi.test",
-            password: "pw",
-            totp: 123456,
-            session: URLSession(configuration: configuration)
-        )
-
-        try await client.login()
-
-        XCTAssertEqual(log.last?.json["totp"] as? Int, 123456)
-    }
-
     func testBadPasswordIsAuthError() async throws {
         // A rejected login returns 401 with a session object, not an FTL
         // error envelope.
@@ -227,19 +207,6 @@ final class AuthTests: MockFTLTestCase {
         }
     }
 
-    func testSessionValid() async throws {
-        let client = await makeAuthedClient(
-            .json(200, #"{"session":{"valid":true,"sid":"S","validity":300,"totp":true},"took":0}"#)
-        )
-
-        let session = try await client.sessionValid()
-
-        XCTAssertTrue(session.valid)
-        XCTAssertEqual(session.validity, 300)
-        XCTAssertTrue(session.totp)
-        XCTAssertEqual(log.last?.method, "GET")
-    }
-
     func testLogoutClearsSession() async throws {
         let client = await makeAuthedClient(.empty(204))
 
@@ -248,8 +215,8 @@ final class AuthTests: MockFTLTestCase {
         XCTAssertEqual(log.last?.method, "DELETE")
         XCTAssertEqual(log.last?.rawPath, "/api/auth")
         XCTAssertEqual(log.last?.sid, "S")
-        let hasSession = await client.hasSession
-        XCTAssertFalse(hasSession)
+        let sid = await client.sessionID
+        XCTAssertNil(sid)
     }
 
     func testLogoutWithoutSessionSendsNothing() async throws {

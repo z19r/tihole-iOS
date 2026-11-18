@@ -65,11 +65,20 @@ final class SmokeTests: XCTestCase {
         snap("02-dashboard")
 
         // Blocking: disable for five minutes, and the pill starts counting down.
+        // Wait for the first status fetch to settle the pill: a tap that
+        // lands while it is redrawn from "unknown" to "on" is dropped.
         let pill = app.buttons["blocking.pill"]
-        XCTAssertTrue(pill.waitForExistence(timeout: 10))
-        pill.tap()
+        let settled = expectation(
+            for: NSPredicate(format: "label == %@", "Blocking is on"),
+            evaluatedWith: pill
+        )
+        wait(for: [settled], timeout: 15)
         let fiveMinutes = app.buttons["Disable for 5 minutes"]
-        XCTAssertTrue(fiveMinutes.waitForExistence(timeout: 10), "blocking sheet did not open")
+        for _ in 0..<3 where !fiveMinutes.exists {
+            pill.tap()
+            _ = fiveMinutes.waitForExistence(timeout: 5)
+        }
+        XCTAssertTrue(fiveMinutes.exists, "blocking sheet did not open")
         snap("04-blocking")
         fiveMinutes.tap()
         XCTAssertTrue(

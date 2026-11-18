@@ -221,9 +221,9 @@ struct LocalDNSView: View {
         do {
             switch record {
             case .host(let host):
-                try await client.deleteHostRecord(ip: host.ip, domain: host.domain)
+                try await client.deleteHostRecord(host)
             case .cname(let cname):
-                try await client.deleteCNAMERecord(domain: cname.domain, target: cname.target, ttl: cname.ttl)
+                try await client.deleteCNAMERecord(cname)
             }
             await reload()
         } catch {

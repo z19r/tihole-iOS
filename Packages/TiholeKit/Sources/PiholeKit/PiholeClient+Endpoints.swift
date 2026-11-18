@@ -210,20 +210,6 @@ extension PiholeClient {
         return try decode(TopClients.self, from: data, operation: "GET /stats/top_clients")
     }
 
-    /// `GET /api/stats/recent_blocked`: the most recently blocked domains.
-    public func recentBlocked(count: Int = 0) async throws -> [String] {
-        var path = "/stats/recent_blocked"
-        if count > 0 {
-            path += "?count=\(count)"
-        }
-        let data = try await perform("GET", path)
-        return try decode(
-            RecentBlockedEnvelope.self,
-            from: data,
-            operation: "GET /stats/recent_blocked"
-        ).blocked
-    }
-
     static func topQuery(blocked: Bool, count: Int) -> String {
         var items = [("blocked", blocked ? "true" : "false")]
         if count > 0 {
@@ -238,17 +224,6 @@ extension PiholeClient {
     public func history() async throws -> QueryHistory {
         let data = try await perform("GET", "/history")
         return try decode(QueryHistory.self, from: data, operation: "GET /history")
-    }
-
-    /// `GET /api/history/clients?N`: per-client over-time buckets for the top
-    /// `count` clients. A non-positive `count` omits the parameter.
-    public func historyClients(count: Int = 0) async throws -> HistoryClients {
-        var path = "/history/clients"
-        if count > 0 {
-            path += "?N=\(count)"
-        }
-        let data = try await perform("GET", path)
-        return try decode(HistoryClients.self, from: data, operation: "GET /history/clients")
     }
 
     // MARK: - Queries
@@ -316,11 +291,6 @@ extension PiholeClient {
         _ = try await perform("DELETE", PiholeClient.domainPath(type, kind, domain))
     }
 
-    /// `POST /api/domains:batchDelete`.
-    public func batchDeleteDomains(_ items: [DomainRef]) async throws {
-        _ = try await perform("POST", "/domains:batchDelete", body: try encodeJSON(items))
-    }
-
     // MARK: - Groups
 
     /// `GET /api/groups`: every configured group.
@@ -350,11 +320,6 @@ extension PiholeClient {
     /// `DELETE /api/groups/{name}`.
     public func deleteGroup(name: String) async throws {
         _ = try await perform("DELETE", "/groups/" + Escape.segment(name))
-    }
-
-    /// `POST /api/groups:batchDelete`.
-    public func batchDeleteGroups(_ items: [ItemRef]) async throws {
-        _ = try await perform("POST", "/groups:batchDelete", body: try encodeJSON(items))
     }
 
     // MARK: - Clients
@@ -407,11 +372,6 @@ extension PiholeClient {
             from: data,
             operation: "GET /clients/_suggestions"
         ).clients
-    }
-
-    /// `POST /api/clients:batchDelete`.
-    public func batchDeleteClients(_ items: [ItemRef]) async throws {
-        _ = try await perform("POST", "/clients:batchDelete", body: try encodeJSON(items))
     }
 
     // MARK: - Adlists
@@ -468,11 +428,6 @@ extension PiholeClient {
     /// `DELETE /api/lists/{address}?type={type}`.
     public func deleteList(address: String, type: ListType) async throws {
         _ = try await perform("DELETE", PiholeClient.listPath(address, type))
-    }
-
-    /// `POST /api/lists:batchDelete`.
-    public func batchDeleteLists(_ items: [ListRef]) async throws {
-        _ = try await perform("POST", "/lists:batchDelete", body: try encodeJSON(items))
     }
 
     // MARK: - Config
@@ -542,12 +497,10 @@ extension PiholeClient {
         )
     }
 
-    /// `DELETE /api/config/dns/hosts/{IP domain}`.
-    public func deleteHostRecord(ip: String, domain: String) async throws {
-        try await deleteConfigItem(
-            element: "dns.hosts",
-            value: HostRecord(ip: ip, domain: domain).configValue
-        )
+    /// `DELETE /api/config/dns/hosts/{IP domain}`, sending the record's
+    /// stored string unchanged.
+    public func deleteHostRecord(_ record: HostRecord) async throws {
+        try await deleteConfigItem(element: "dns.hosts", value: record.configValue)
     }
 
     /// The `dns.cnameRecords` config element, parsed into CNAME records.
@@ -564,12 +517,10 @@ extension PiholeClient {
         )
     }
 
-    /// `DELETE /api/config/dns/cnameRecords/{value}`.
-    public func deleteCNAMERecord(domain: String, target: String, ttl: Int = 0) async throws {
-        try await deleteConfigItem(
-            element: "dns.cnameRecords",
-            value: CNAMERecord(domain: domain, target: target, ttl: ttl).configValue
-        )
+    /// `DELETE /api/config/dns/cnameRecords/{value}`, sending the record's
+    /// stored string unchanged.
+    public func deleteCNAMERecord(_ record: CNAMERecord) async throws {
+        try await deleteConfigItem(element: "dns.cnameRecords", value: record.configValue)
     }
 
     // MARK: - Info
@@ -657,26 +608,6 @@ extension PiholeClient {
             from: data,
             operation: "GET /network/devices"
         ).devices
-    }
-
-    /// `GET /api/network/gateway`.
-    public func gateway() async throws -> JSONValue {
-        try await networkObject("/network/gateway")
-    }
-
-    /// `GET /api/network/interfaces`.
-    public func interfaces() async throws -> JSONValue {
-        try await networkObject("/network/interfaces")
-    }
-
-    /// `GET /api/network/routes`.
-    public func routes() async throws -> JSONValue {
-        try await networkObject("/network/routes")
-    }
-
-    private func networkObject(_ path: String) async throws -> JSONValue {
-        let data = try await perform("GET", path)
-        return try decode(JSONValue.self, from: data, operation: "GET " + path)
     }
 
     /// `DELETE /api/network/devices/{id}`.
