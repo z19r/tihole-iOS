@@ -30,6 +30,18 @@ jobs:
       - name: Test
         run: swift test --package-path Packages/TiholeKit
 
+  scripts:
+    name: Python scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # 80-column ruff format and lint, the same as `just fmt-check`.
+      - name: Format and lint
+        run: |
+          pipx run ruff format --check scripts
+          pipx run ruff check scripts
+
   app:
     name: Build app
     runs-on: macos-latest

@@ -1,0 +1,146 @@
+name: App Store assets
+
+# Captures the app on the 6.9" iPhone and 13" iPad simulators, frames the
+# screenshots with captions (scripts/store_frames.py), and uploads them to
+# the editable App Store version (scripts/asc_screenshots.py). Run it from
+# the Actions tab whenever the UI changes. It uses the same repository
+# secrets as the TestFlight workflow.
+#
+# Pull requests that touch it only capture and frame, to prove that still
+# works. They never see the secrets and never upload.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/app-store-assets.yml
+      - scripts/store_frames.py
+      - scripts/asc_screenshots.py
+      - scripts/pick_simulator.py
+      - TiholeUITests/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-store-assets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    name: Capture (${{ matrix.device }})
+    runs-on: macos-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device: iphone
+            simulator: 'iPhone .* Pro Max'
+          - device: ipad
+            simulator: 'iPad Pro 13'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      # Dark appearance (the app's Auto theme follows it) and a clean status
+      # bar, so the screenshots look like a real device.
+      - name: Prepare the simulator
+        run: |
+          udid="$(scripts/pick_simulator.py '${{ matrix.simulator }}')"
+          echo "UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid"
+          xcrun simctl ui "$udid" appearance dark
+          xcrun simctl status_bar "$udid" override --time 9:41 \
+            --dataNetwork wifi --wifiMode active --wifiBars 3 \
+            --cellularMode active --cellularBars 4 \
+            --batteryState charged --batteryLevel 100
+
+      - name: Run the UI test
+        run: |
+          xcodebuild test \
+            -project Tihole.xcodeproj \
+            -scheme Tihole \
+            -destination "platform=iOS Simulator,id=$UDID" \
+            -resultBundlePath TestResults.xcresult
+
+      - name: Export screenshots
+        if: always()
+        run: |
+          xcrun xcresulttool export attachments \
+            --path TestResults.xcresult --output-path raw
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: raw-${{ matrix.device }}
+          path: raw
+          if-no-files-found: ignore
+
+  frames:
+    name: Frame and upload
+    needs: capture
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: raw-iphone
+          path: raw/iphone
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: raw-ipad
+          path: raw/ipad
+
+      - name: Frame the screenshots
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet pillow 'pyjwt[crypto]'
+          for device in iphone ipad; do
+            "$RUNNER_TEMP/venv/bin/python" scripts/store_frames.py \
+              "$device" "raw/$device" "frames/$device"
+          done
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: app-store-screenshots
+          path: frames
+
+      - name: Install the App Store Connect API key
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          key="$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
+          # Accept the .p8 pasted as text, or base64-encoded.
+          if printf '%s' "$ASC_PRIVATE_KEY" | grep -q "BEGIN PRIVATE KEY"; then
+            printf '%s\n' "$ASC_PRIVATE_KEY" > "$key"
+          else
+            printf '%s' "$ASC_PRIVATE_KEY" | base64 --decode > "$key"
+          fi
+          chmod 600 "$key"
+          echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
+
+      - name: Upload to App Store Connect
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          "$RUNNER_TEMP/venv/bin/python" scripts/asc_screenshots.py frames
+
+      - name: Remove the API key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"
