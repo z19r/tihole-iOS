@@ -18,6 +18,20 @@ struct InstanceForm: View {
     @State private var testPassed = false
     @State private var testFailure: String?
 
+    #if DEBUG
+    /// UI tests (launched with --reset-state) type the password into a
+    /// plain field: a SecureField makes iOS offer to save the password, and
+    /// that prompt blocks taps at random moments.
+    private static let plainPassword =
+        ProcessInfo.processInfo.arguments.contains("--reset-state")
+    #else
+    private static let plainPassword = false
+    #endif
+
+    private var passwordPrompt: String {
+        existing == nil ? "App password" : "App password (leave blank to keep)"
+    }
+
     private var isPlainHTTP: Bool {
         InstanceConfig.normalizedURL(draft.url).lowercased().hasPrefix("http://")
     }
@@ -48,8 +62,15 @@ struct InstanceForm: View {
             .rowStyle()
 
             Section {
-                SecureField(existing == nil ? "App password" : "App password (leave blank to keep)", text: $draft.password)
-                    .accessibilityIdentifier("instance.password")
+                if Self.plainPassword {
+                    TextField(passwordPrompt, text: $draft.password)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .accessibilityIdentifier("instance.password")
+                } else {
+                    SecureField(passwordPrompt, text: $draft.password)
+                        .accessibilityIdentifier("instance.password")
+                }
             } header: {
                 Text("Password")
             } footer: {

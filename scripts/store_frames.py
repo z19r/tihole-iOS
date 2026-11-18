@@ -30,7 +30,7 @@ BORDER = (0x3A, 0x2A, 0x4A)
 # Snapshot name in SmokeTests -> caption. Order is the App Store order.
 SHOTS = [
     (
-        "02-dashboard",
+        "14-dashboard-final",
         "Your Pi-hole at a glance",
         "Queries, blocking, upstreams and top domains, live.",
     ),
@@ -167,7 +167,7 @@ def main(device, attachments, out):
     if missing:
         sys.exit(f"missing screenshots: {', '.join(missing)}")
     for index, (key, title, subtitle) in enumerate(SHOTS, start=1):
-        name = key.split("-", 1)[1]
+        name = key.split("-")[1]
         path = out / f"{index:02d}-{name}.png"
         frame(shots[key], title, subtitle, size).save(path, "PNG")
         print(path)
