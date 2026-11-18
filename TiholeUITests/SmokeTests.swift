@@ -203,8 +203,18 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(element.waitForExistence(timeout: 5), "\(element) never appeared")
     }
 
+    /// Pops the pushed screen. iOS 27 can report the navigation bar's back
+    /// button as a plain element rather than a button, so when no button is
+    /// found, swipe in from the leading edge instead.
     private func goBack() {
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let button = app.navigationBars.buttons.element(boundBy: 0)
+        if button.waitForExistence(timeout: 2) {
+            button.tap()
+            return
+        }
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
+        start.press(forDuration: 0.1, thenDragTo: end)
     }
 
     private func snap(_ name: String) {
