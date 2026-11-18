@@ -51,8 +51,12 @@ def main():
                 d for d in devices[name] if re.search(pattern, d["name"])
             ]
         else:
+            # The foldable iPhone Duo's side tab bar is not what the smoke
+            # test is written for, so skip it rather than rank it last.
             matches = [
-                d for d in devices[name] if d["name"].startswith("iPhone")
+                d
+                for d in devices[name]
+                if d["name"].startswith("iPhone") and "Duo" not in d["name"]
             ]
             # Prefer a plain model over Pro Max / Plus / SE so layouts are
             # tested at the common size.
