@@ -38,7 +38,7 @@ final class SmokeTests: XCTestCase {
         url.tap()
         url.typeText("http://127.0.0.1:\(server.port)")
 
-        let password = app.secureTextFields["instance.password"]
+        let password = app.textFields["instance.password"]
         password.tap()
         password.typeText(MockPihole.password + "\n")
         snap("01-onboarding")
@@ -54,7 +54,6 @@ final class SmokeTests: XCTestCase {
         let save = app.buttons["instance.save"]
         scrollUntilHittable(save)
         save.tap()
-        dismissSavePasswordPrompt()
 
         // Dashboard.
         XCTAssertTrue(
@@ -144,6 +143,28 @@ final class SmokeTests: XCTestCase {
             "config tree did not load"
         )
         snap("13-config")
+
+        // Turn blocking back on and finish on the dashboard, so the App
+        // Store's dashboard shot shows blocking on.
+        openTab("Dashboard")
+        let enable = app.buttons["Enable blocking"]
+        for _ in 0..<3 where !enable.exists {
+            pill.tap()
+            _ = enable.waitForExistence(timeout: 5)
+        }
+        XCTAssertTrue(enable.exists, "blocking sheet did not open again")
+        enable.tap()
+        let back = expectation(
+            for: NSPredicate(format: "label == %@", "Blocking is on"),
+            evaluatedWith: pill
+        )
+        wait(for: [back], timeout: 15)
+        XCTAssertTrue(
+            element(labelContaining: "Total Queries").waitForExistence(
+                timeout: 10
+            )
+        )
+        snap("14-dashboard-final")
     }
 
     // MARK: - Helpers
@@ -182,30 +203,11 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(element.waitForExistence(timeout: 5), "\(element) never appeared")
     }
 
-    /// iOS may offer to save the instance password to the Passwords app once
-    /// the form goes away, sometimes many seconds later. It covers the
-    /// screen, so decline it.
-    private func dismissSavePasswordPrompt(timeout: TimeInterval = 4) {
-        let springboard = XCUIApplication(
-            bundleIdentifier: "com.apple.springboard"
-        )
-        for host in [springboard, app!] {
-            let notNow = host.buttons["Not Now"]
-            if notNow.waitForExistence(timeout: timeout) {
-                notNow.tap()
-                return
-            }
-        }
-    }
-
     private func goBack() {
         app.navigationBars.buttons.element(boundBy: 0).tap()
     }
 
-    /// Screenshots double as App Store screenshots, so a late password
-    /// prompt must never be in one.
     private func snap(_ name: String) {
-        dismissSavePasswordPrompt(timeout: 1)
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
