@@ -2,8 +2,11 @@
 """Renders the placeholder app icon: a hexagon in the Gloss theme's ramp on
 the theme's deep-void surface, with a dark "hole" in the middle.
 
-Usage: python3 scripts/make_icon.py Tihole/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+Usage:
+    python3 scripts/make_icon.py \
+        Tihole/Assets.xcassets/AppIcon.appiconset/AppIcon.png
 """
+
 import math
 import sys
 
@@ -31,7 +34,10 @@ def ramp_color(t):
 
 def hexagon(cx, cy, r):
     return [
-        (cx + r * math.cos(math.radians(60 * k - 90)), cy + r * math.sin(math.radians(60 * k - 90)))
+        (
+            cx + r * math.cos(math.radians(60 * k - 90)),
+            cy + r * math.sin(math.radians(60 * k - 90)),
+        )
         for k in range(6)
     ]
 
@@ -48,7 +54,9 @@ def main(path):
     draw = ImageDraw.Draw(mask)
     c = n / 2
     draw.polygon(hexagon(c, c, n * 0.40), fill=255)
-    draw.ellipse([c - n * 0.15, c - n * 0.15, c + n * 0.15, c + n * 0.15], fill=0)
+    draw.ellipse(
+        [c - n * 0.15, c - n * 0.15, c + n * 0.15, c + n * 0.15], fill=0
+    )
 
     icon = Image.new("RGB", (n, n), SURFACE)
     icon.paste(gradient, (0, 0), mask)

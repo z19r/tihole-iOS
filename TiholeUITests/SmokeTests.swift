@@ -90,7 +90,7 @@ final class SmokeTests: XCTestCase {
         snap("03-dashboard-lower")
 
         // Query log.
-        app.tabBars.buttons["Queries"].tap()
+        openTab("Queries")
         XCTAssertTrue(
             element(labelContaining: "ads.example.com").waitForExistence(timeout: 20),
             "query log did not load"
@@ -98,7 +98,7 @@ final class SmokeTests: XCTestCase {
         snap("06-queries")
 
         // Lists, then into Domains and Adlists.
-        app.tabBars.buttons["Lists"].tap()
+        openTab("Lists")
         let domains = element(labelBeginningWith: "Domains")
         XCTAssertTrue(domains.waitForExistence(timeout: 10))
         snap("07-lists")
@@ -121,7 +121,7 @@ final class SmokeTests: XCTestCase {
         goBack()
 
         // System, then into Info.
-        app.tabBars.buttons["System"].tap()
+        openTab("System")
         let info = element(labelBeginningWith: "Info")
         XCTAssertTrue(info.waitForExistence(timeout: 10))
         snap("10-system")
@@ -134,7 +134,7 @@ final class SmokeTests: XCTestCase {
         goBack()
 
         // Settings, then into the config tree.
-        app.tabBars.buttons["Settings"].tap()
+        openTab("Settings")
         let configuration = element(labelBeginningWith: "Configuration")
         XCTAssertTrue(configuration.waitForExistence(timeout: 10))
         snap("12-settings")
@@ -147,6 +147,13 @@ final class SmokeTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    /// Taps a tab. iPadOS draws its tab bar at the top, where it may not
+    /// show up as a tab bar, so fall back to any button with that name.
+    private func openTab(_ name: String) {
+        let inTabBar = app.tabBars.buttons[name]
+        (inTabBar.exists ? inTabBar : app.buttons[name].firstMatch).tap()
+    }
 
     /// The first element of any type whose accessibility label contains
     /// `text`. Rows combine their children into one element, so matching by
@@ -176,12 +183,15 @@ final class SmokeTests: XCTestCase {
     }
 
     /// iOS may offer to save the instance password to the Passwords app once
-    /// the form goes away. The sheet covers the whole screen, so decline it.
-    private func dismissSavePasswordPrompt() {
-        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    /// the form goes away, sometimes many seconds later. It covers the
+    /// screen, so decline it.
+    private func dismissSavePasswordPrompt(timeout: TimeInterval = 4) {
+        let springboard = XCUIApplication(
+            bundleIdentifier: "com.apple.springboard"
+        )
         for host in [springboard, app!] {
             let notNow = host.buttons["Not Now"]
-            if notNow.waitForExistence(timeout: 4) {
+            if notNow.waitForExistence(timeout: timeout) {
                 notNow.tap()
                 return
             }
@@ -192,7 +202,10 @@ final class SmokeTests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
     }
 
+    /// Screenshots double as App Store screenshots, so a late password
+    /// prompt must never be in one.
     private func snap(_ name: String) {
+        dismissSavePasswordPrompt(timeout: 1)
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways

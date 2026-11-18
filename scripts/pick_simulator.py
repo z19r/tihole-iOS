@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Prints the UDID of an available iPhone simulator on the newest iOS runtime.
+"""Prints the UDID of an available simulator on the newest iOS runtime.
 
 CI images rename their simulators with every Xcode release, so the UI test
 picks one at run time instead of naming a device.
+
+With no argument it picks a plain iPhone. With a regular expression it picks
+the first device whose name matches, e.g. "iPhone .* Pro Max" or
+"iPad Pro 13".
 """
+
 import json
 import re
 import subprocess
@@ -19,8 +24,10 @@ def runtime_version(identifier):
 
 
 def is_variant(name):
-    # "iPhone 17 Pro Max", "iPhone 16 Plus", "iPhone SE", "iPhone Air", "iPhone 16e"
-    return any(tag in name for tag in ("Max", "Plus", "SE", "Air")) or re.search(r"\de$", name) is not None
+    # "iPhone 17 Pro Max", "iPhone 16 Plus", "iPhone SE", "iPhone Air",
+    # "iPhone 16e"
+    tagged = any(tag in name for tag in ("Max", "Plus", "SE", "Air"))
+    return tagged or re.search(r"\de$", name) is not None
 
 
 def main():
@@ -35,16 +42,25 @@ def main():
     runtimes = [(runtime_version(name), name) for name in devices]
     runtimes = sorted((r for r in runtimes if r[0] is not None), reverse=True)
 
+    pattern = sys.argv[1] if len(sys.argv) > 1 else None
     for _, name in runtimes:
-        phones = [d for d in devices[name] if d["name"].startswith("iPhone")]
-        # Prefer a plain model over Pro Max / Plus / SE so layouts are tested
-        # at the common size.
-        phones.sort(key=lambda d: (is_variant(d["name"]), d["name"]))
-        if phones:
-            print(phones[0]["udid"])
+        if pattern:
+            matches = [
+                d for d in devices[name] if re.search(pattern, d["name"])
+            ]
+        else:
+            matches = [
+                d for d in devices[name] if d["name"].startswith("iPhone")
+            ]
+            # Prefer a plain model over Pro Max / Plus / SE so layouts are
+            # tested at the common size.
+            matches.sort(key=lambda d: (is_variant(d["name"]), d["name"]))
+        if matches:
+            print(matches[0]["udid"])
             return 0
 
-    print("no available iPhone simulator found", file=sys.stderr)
+    wanted = pattern or "iPhone"
+    print(f"no available simulator matches {wanted}", file=sys.stderr)
     return 1
 
 
