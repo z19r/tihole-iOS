@@ -25,8 +25,10 @@ def runtime_version(identifier):
 
 def is_variant(name):
     # "iPhone 17 Pro Max", "iPhone 16 Plus", "iPhone SE", "iPhone Air",
-    # "iPhone 16e"
-    tagged = any(tag in name for tag in ("Max", "Plus", "SE", "Air"))
+    # "iPhone 16e", and the foldable "iPhone Duo", whose side tab bar the
+    # smoke test is not written for.
+    tags = ("Max", "Plus", "SE", "Air", "Duo")
+    tagged = any(tag in name for tag in tags)
     return tagged or re.search(r"\de$", name) is not None
 
 

@@ -43,7 +43,7 @@ concurrency:
 jobs:
   testflight:
     name: Archive and upload
-    runs-on: macos-latest
+    runs-on: xcode-27
     timeout-minutes: 45
     permissions:
       contents: read
@@ -132,7 +132,6 @@ jobs:
         run: |
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
             <key>method</key>

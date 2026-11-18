@@ -45,7 +45,7 @@ The instance switcher (`s` in the TUI) is the menu at the top left of every tab.
 
 ## Requirements
 
-- Xcode 16 or later
+- Xcode 16 or later (CI and App Store builds use Xcode 27)
 - iOS 17 or later
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 - A Pi-hole running v6 (the FTL REST API at `/api`)

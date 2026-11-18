@@ -9,6 +9,10 @@ matching screenshot set of the version's localization is emptied and
 refilled, so running this again replaces the screenshots instead of adding
 to them.
 
+If <frames-dir>/header/header.png exists, it goes to the app's Asset Library
+and becomes the version's product page header and search results asset,
+replacing whatever held those places.
+
 If no version can be edited, one is created for MARKETING_VERSION in
 project.yml.
 
@@ -155,6 +159,107 @@ def clear(set_id):
         print(f"  removed {len(existing)} old screenshots")
 
 
+HEADER_PLACEMENTS = (
+    "PRODUCT_PAGE_HEADER_ASSET",
+    "APP_STORE_SEARCH_RESULTS_ASSET",
+)
+
+
+def put_parts(operations, data):
+    for op in operations:
+        chunk = data[op["offset"] : op["offset"] + op["length"]]
+        request = urllib.request.Request(
+            op["url"], data=chunk, method=op["method"]
+        )
+        for header in op.get("requestHeaders", []):
+            request.add_header(header["name"], header["value"])
+        with urllib.request.urlopen(request, timeout=120):
+            pass
+
+
+def upload_header(app_id, localization_id, path):
+    library = api("GET", f"/v1/apps/{app_id}/assetLibrary")["data"]["id"]
+    data = path.read_bytes()
+    image = api(
+        "POST",
+        "/v1/appAssetLibraryImages",
+        {
+            "data": {
+                "type": "appAssetLibraryImages",
+                "attributes": {
+                    "category": "CREATIVE_ASSETS",
+                    "fileName": path.name,
+                    "fileSize": len(data),
+                },
+                "relationships": {
+                    "assetLibrary": {
+                        "data": {"type": "appAssetLibraries", "id": library}
+                    }
+                },
+            }
+        },
+    )["data"]
+    put_parts(image["attributes"]["uploadOperations"], data)
+    api(
+        "PATCH",
+        f"/v1/appAssetLibraryImages/{image['id']}",
+        {
+            "data": {
+                "type": "appAssetLibraryImages",
+                "id": image["id"],
+                "attributes": {"uploaded": True},
+            }
+        },
+    )
+    for _ in range(60):
+        attributes = api("GET", f"/v1/appAssetLibraryImages/{image['id']}")[
+            "data"
+        ]["attributes"]
+        state = attributes.get("state")
+        if state == "FAILED":
+            fail(f"App Store Connect rejected {path.name}: {attributes}")
+        if state not in ("AWAITING_UPLOAD", "UPLOAD_COMPLETE"):
+            break
+        time.sleep(5)
+    else:
+        fail(f"{path.name} was still processing after 5 minutes")
+    print(f"  {path.name} is in the Asset Library ({state})")
+
+    placed = api(
+        "GET",
+        f"/v1/appStoreVersionLocalizations/{localization_id}/placements",
+    )["data"]
+    for item in placed:
+        if item["attributes"].get("placementType") in HEADER_PLACEMENTS:
+            api("DELETE", f"/v1/appAssetLibraryPlacements/{item['id']}")
+    for placement in HEADER_PLACEMENTS:
+        api(
+            "POST",
+            "/v1/appAssetLibraryPlacements",
+            {
+                "data": {
+                    "type": "appAssetLibraryPlacements",
+                    "attributes": {"placementType": placement},
+                    "relationships": {
+                        "image": {
+                            "data": {
+                                "type": "appAssetLibraryImages",
+                                "id": image["id"],
+                            }
+                        },
+                        "appStoreVersionLocalization": {
+                            "data": {
+                                "type": "appStoreVersionLocalizations",
+                                "id": localization_id,
+                            }
+                        },
+                    },
+                }
+            },
+        )
+        print(f"  placed as {placement}")
+
+
 def upload(set_id, path):
     data = path.read_bytes()
     reserved = api(
@@ -172,15 +277,7 @@ def upload(set_id, path):
             }
         },
     )["data"]
-    for op in reserved["attributes"]["uploadOperations"]:
-        chunk = data[op["offset"] : op["offset"] + op["length"]]
-        request = urllib.request.Request(
-            op["url"], data=chunk, method=op["method"]
-        )
-        for header in op.get("requestHeaders", []):
-            request.add_header(header["name"], header["value"])
-        with urllib.request.urlopen(request, timeout=120):
-            pass
+    put_parts(reserved["attributes"]["uploadOperations"], data)
     api(
         "PATCH",
         f"/v1/appScreenshots/{reserved['id']}",
@@ -216,7 +313,8 @@ def wait_until_processed(screenshot_id, name):
 
 
 def main(frames):
-    version_id = editable_version(find_app())
+    app_id = find_app()
+    version_id = editable_version(app_id)
     localization_id = localization(version_id)
     for device, display_type in DISPLAY_TYPES.items():
         files = sorted((frames / device).glob("*.png"))
@@ -228,6 +326,10 @@ def main(frames):
         for path in files:
             wait_until_processed(upload(set_id, path), path.name)
             print(f"  uploaded {path.name}")
+    header = frames / "header" / "header.png"
+    if header.exists():
+        print("header and search results:")
+        upload_header(app_id, localization_id, header)
 
 
 if __name__ == "__main__":
