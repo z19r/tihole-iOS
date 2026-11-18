@@ -57,8 +57,19 @@ jobs:
         run: |
           udid="$(scripts/pick_simulator.py '${{ matrix.simulator }}')"
           echo "UDID=$udid" >> "$GITHUB_ENV"
-          xcrun simctl boot "$udid"
-          xcrun simctl bootstatus "$udid"
+          # A simulator sometimes hangs while booting. Give each boot five
+          # minutes (perl's alarm, as macOS has no timeout command), then
+          # erase it and try once more.
+          for attempt in 1 2; do
+            if perl -e 'alarm 300; exec @ARGV' \
+              xcrun simctl bootstatus "$udid" -b; then
+              break
+            fi
+            [ "$attempt" = 2 ] && exit 1
+            echo "::warning::Simulator boot hung; erasing and retrying."
+            xcrun simctl shutdown "$udid" || true
+            xcrun simctl erase "$udid"
+          done
           xcrun simctl ui "$udid" appearance dark
           xcrun simctl status_bar "$udid" override --time 9:41 \
             --dataNetwork wifi --wifiMode active --wifiBars 3 \
