@@ -176,7 +176,7 @@
   });
 
   document.querySelectorAll("[data-version]").forEach(function (node) {
-    if (data.version) node.textContent = data.version;
+    if (data.version) node.textContent = "v" + data.version;
   });
 
   // ---------- App Store link ----------
