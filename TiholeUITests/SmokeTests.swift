@@ -144,6 +144,29 @@ final class SmokeTests: XCTestCase {
             "config tree did not load"
         )
         snap("13-config")
+
+        // Turn blocking back on and finish on the dashboard. This is the
+        // App Store's dashboard shot: the save-password prompt that can
+        // cover the first one is long gone by now.
+        openTab("Dashboard")
+        let enable = app.buttons["Enable blocking"]
+        for _ in 0..<3 where !enable.exists {
+            pill.tap()
+            _ = enable.waitForExistence(timeout: 5)
+        }
+        XCTAssertTrue(enable.exists, "blocking sheet did not open again")
+        enable.tap()
+        let back = expectation(
+            for: NSPredicate(format: "label == %@", "Blocking is on"),
+            evaluatedWith: pill
+        )
+        wait(for: [back], timeout: 15)
+        XCTAssertTrue(
+            element(labelContaining: "Total Queries").waitForExistence(
+                timeout: 10
+            )
+        )
+        snap("14-dashboard-final")
     }
 
     // MARK: - Helpers
