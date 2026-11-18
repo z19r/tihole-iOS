@@ -153,7 +153,10 @@ final class SmokeTests: XCTestCase {
         for _ in 0..<3 where !pill.waitForExistence(timeout: 2) {
             app.swipeDown()
         }
-        XCTAssertTrue(pill.waitForExistence(timeout: 10), "blocking pill did not reappear")
+        XCTAssertTrue(
+            pill.waitForExistence(timeout: 10),
+            "blocking pill did not reappear"
+        )
         let enable = app.buttons["Enable blocking"]
         for _ in 0..<3 where !enable.exists {
             pill.tap()
@@ -219,8 +222,12 @@ final class SmokeTests: XCTestCase {
             button.tap()
             return
         }
-        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
-        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
+        let start = app.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5)
+        )
+        let end = app.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)
+        )
         start.press(forDuration: 0.1, thenDragTo: end)
     }
 
