@@ -87,6 +87,10 @@ jobs:
       - name: Export screenshots
         if: always()
         run: |
+          if [ ! -d TestResults.xcresult ]; then
+            echo "No test results to export."
+            exit 0
+          fi
           xcrun xcresulttool export attachments \
             --path TestResults.xcresult --output-path raw
 
