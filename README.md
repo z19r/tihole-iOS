@@ -1,6 +1,6 @@
 # tihole for iOS
 
-[![CI](https://github.com/z19r/tihole-iOS/actions/workflows/ci.yml/badge.svg)](https://github.com/z19r/tihole-iOS/actions/workflows/ci.yml)
+[![CI][ci-badge]][ci]
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A native iOS client for [Pi-hole v6](https://pi-hole.net/), ported from the
@@ -72,7 +72,8 @@ just ui-test     # drive the app through every tab against a mock Pi-hole
 just ci          # test + build
 ```
 
-The UI smoke test needs no Pi-hole. [`TiholeUITests/MockPihole.swift`](TiholeUITests/MockPihole.swift)
+The UI smoke test needs no Pi-hole.
+[`TiholeUITests/MockPihole.swift`](TiholeUITests/MockPihole.swift)
 is a small HTTP server that runs inside the test runner and answers like FTL,
 including rejecting requests without the session id it issued, so the test
 exercises the app's real login path. Each stop is captured as a screenshot in
@@ -82,24 +83,33 @@ the test results; CI uploads them as the `screenshots` artifact.
 
 The listing lives in the repo. [`metadata/`](metadata) holds the
 description, promotional text, keywords, subtitle and URLs, wrapped at 80
-columns. [`PRIVACY.md`](PRIVACY.md) is the privacy policy it links to. Run
-the **App Store assets** workflow from the Actions tab to upload the
-screenshots, the header image and all of that text to the editable version.
+columns. Run the **App Store assets** workflow from the Actions tab to
+upload the screenshots, the header image and all of that text to the
+editable version.
+
+### Website
+
+[tihole-ios.z19r.com](https://tihole-ios.z19r.com) is built from
+[`site/`](site): plain HTML, CSS and JavaScript, no build tools. Its
+[privacy page](site/privacy.html) is the policy the App Store listing links
+to. Netlify deploys `main`, running `scripts/site_data.py` to write the
+version and release feed from `project.yml` and `CHANGELOG.md`. Preview it
+with `just site`.
 
 ### Layout
 
 ```
 Packages/TiholeKit/
 ├── Sources/PiholeKit/     Pi-hole v6 API client: the only code that speaks HTTP
-├── Sources/TiholeCore/    instance config, formatting, config-tree logic (no UI)
+├── Sources/TiholeCore/    config, formatting, config-tree logic (no UI)
 └── Tests/                 unit tests for both, against a mock FTL server
 Tihole/
 ├── App/                   app entry, AppModel, tabs, toolbar chrome, blocking
 ├── Store/                 Keychain passwords, saved config
 ├── Theme/                 semantic color tokens and the built-in themes
-├── Components/            shared views: cards, banners, form frame, group picker
+├── Components/            cards, banners, form frame, group picker
 └── Screens/               one folder per tab
-TiholeUITests/             end-to-end smoke test and the mock Pi-hole it runs against
+TiholeUITests/             smoke test and the mock Pi-hole it uses
 ```
 
 The layering is the same as the TUI's: **the client knows nothing about the
@@ -111,10 +121,10 @@ the host.
   with the `X-FTL-SID` header, logs in on demand, and on a 401 re-authenticates
   once and retries. Concurrent 401s share a single login, so a burst of parallel
   dashboard fetches never eats more than one of FTL's session seats.
-- `AppModel` is the app's equivalent of the TUI's `AppContext`. It owns the saved
-  config, the active instance's client, the theme, and the blocking status.
-  Screens key their loading tasks on `AppModel.generation`, so switching
-  instances reloads everything.
+- `AppModel` is the app's equivalent of the TUI's `AppContext`. It owns the
+  saved config, the active instance's client, the theme, and the blocking
+  status. Screens key their loading tasks on `AppModel.generation`, so
+  switching instances reloads everything.
 - Screens load in `.task`, which SwiftUI cancels when the view goes away. That
   is the equivalent of the TUI's `Focus()` / `Blur()`.
 
@@ -143,3 +153,7 @@ the host.
 ## License
 
 Released under the [MIT License](LICENSE).
+
+[ci-badge]:
+  https://github.com/z19r/tihole-iOS/actions/workflows/ci.yml/badge.svg
+[ci]: https://github.com/z19r/tihole-iOS/actions/workflows/ci.yml

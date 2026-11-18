@@ -35,7 +35,8 @@ ci: test build
 
 # Re-render the placeholder app icon
 icon:
-    python3 scripts/make_icon.py Tihole/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+    python3 scripts/make_icon.py \
+        Tihole/Assets.xcassets/AppIcon.appiconset/AppIcon.png
 
 # Run the UI smoke test against the in-process mock Pi-hole
 ui-test: gen
@@ -56,3 +57,8 @@ fmt:
 fmt-check:
     uvx ruff format --check scripts
     uvx ruff check scripts
+
+# Serve the website at http://localhost:8000
+site:
+    python3 scripts/site_data.py
+    python3 -m http.server 8000 --directory site
