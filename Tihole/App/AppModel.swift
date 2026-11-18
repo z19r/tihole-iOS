@@ -256,7 +256,10 @@ final class AppModel {
         if !status.isBlocking, let timer = status.timer, timer > 0 {
             next.resumesAt = Date().addingTimeInterval(timer)
         }
-        blocking = next
+        // Assign only on change: every assignment redraws each toolbar.
+        if next != blocking {
+            blocking = next
+        }
     }
 
     /// Turns blocking on, or off for `seconds` (nil means until re-enabled).
