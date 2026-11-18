@@ -147,6 +147,13 @@ final class SmokeTests: XCTestCase {
         // Turn blocking back on and finish on the dashboard, so the App
         // Store's dashboard shot shows blocking on.
         openTab("Dashboard")
+        // The dashboard was left scrolled down, and iOS 27 hides the
+        // navigation bar's items while it is, so scroll back to the top
+        // until the pill is there again.
+        for _ in 0..<3 where !pill.waitForExistence(timeout: 2) {
+            app.swipeDown()
+        }
+        XCTAssertTrue(pill.waitForExistence(timeout: 10), "blocking pill did not reappear")
         let enable = app.buttons["Enable blocking"]
         for _ in 0..<3 where !enable.exists {
             pill.tap()
