@@ -1,0 +1,2 @@
+Pause blocking, watch live DNS queries and manage allow and deny lists on
+every Pi-hole you run. Built for Pi-hole v6.

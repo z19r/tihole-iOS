@@ -1,0 +1,12 @@
+pihole
+pi-hole
+dns
+ad blocker
+adblock
+raspberry pi
+network
+blocklist
+privacy
+homelab
+ftl
+gravity

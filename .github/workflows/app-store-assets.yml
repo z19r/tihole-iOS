@@ -2,9 +2,11 @@ name: App Store assets
 
 # Captures the app on the 6.9" iPhone and 13" iPad simulators, frames the
 # screenshots with captions (scripts/store_frames.py), and uploads them to
-# the editable App Store version (scripts/asc_screenshots.py). Run it from
-# the Actions tab whenever the UI changes. It uses the same repository
-# secrets as the TestFlight workflow.
+# the editable App Store version (scripts/asc_screenshots.py). It then fills
+# in the listing text, URLs, category and age rating from metadata/
+# (scripts/asc_metadata.py) and selects the newest build of that version.
+# Run it from the Actions tab whenever the UI or metadata/ changes. It uses
+# the same repository secrets as the TestFlight workflow.
 #
 # Pull requests that touch it only capture and frame, to prove that still
 # works. They never see the secrets and never upload.
@@ -142,6 +144,7 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           "$RUNNER_TEMP/venv/bin/python" scripts/asc_screenshots.py frames
+          "$RUNNER_TEMP/venv/bin/python" scripts/asc_metadata.py metadata
 
       - name: Remove the API key
         if: always()

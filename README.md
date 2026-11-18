@@ -78,6 +78,14 @@ including rejecting requests without the session id it issued, so the test
 exercises the app's real login path. Each stop is captured as a screenshot in
 the test results; CI uploads them as the `screenshots` artifact.
 
+### App Store listing
+
+The listing lives in the repo. [`metadata/`](metadata) holds the
+description, promotional text, keywords, subtitle and URLs, wrapped at 80
+columns. [`PRIVACY.md`](PRIVACY.md) is the privacy policy it links to. Run
+the **App Store assets** workflow from the Actions tab to upload the
+screenshots, the header image and all of that text to the editable version.
+
 ### Layout
 
 ```
