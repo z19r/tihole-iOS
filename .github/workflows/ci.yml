@@ -16,7 +16,7 @@ concurrency:
 jobs:
   package:
     name: Package tests
-    runs-on: macos-latest
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v7
 
@@ -44,7 +44,7 @@ jobs:
 
   app:
     name: Build app
-    runs-on: macos-latest
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v7
 
@@ -65,7 +65,7 @@ jobs:
 
   ui:
     name: UI smoke test
-    runs-on: macos-latest
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v7
 
