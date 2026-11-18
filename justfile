@@ -39,6 +39,8 @@ icon:
 
 # Run the UI smoke test against the in-process mock Pi-hole
 ui-test: gen
+    # xcodebuild refuses to overwrite an existing result bundle.
+    rm -rf TestResults.xcresult
     xcodebuild test \
         -project {{ project }} \
         -scheme {{ scheme }} \

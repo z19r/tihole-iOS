@@ -169,26 +169,12 @@ final class AppModel {
     /// Creates an instance (`id` nil) or updates an existing one. A blank
     /// password on an existing instance keeps the stored one.
     func saveInstance(id: UUID?, draft: InstanceDraft) throws {
-        var next = config
-        let name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let url = InstanceConfig.normalizedURL(draft.url)
-
-        let instanceID: UUID
-        if let id, let index = next.instances.firstIndex(where: { $0.id == id }) {
-            next.instances[index].name = name
-            next.instances[index].url = url
-            next.instances[index].verifyTLS = draft.verifyTLS
-            instanceID = id
-        } else {
-            let instance = InstanceConfig(name: name, url: url, verifyTLS: draft.verifyTLS)
-            next.instances.append(instance)
-            instanceID = instance.id
-        }
-
-        let activeStillExists = next.instances.contains { $0.id == next.activeID }
-        if !activeStillExists {
-            next.activeID = instanceID
-        }
+        let (next, instanceID) = config.upserting(
+            id: id,
+            name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines),
+            url: InstanceConfig.normalizedURL(draft.url),
+            verifyTLS: draft.verifyTLS
+        )
 
         var problems = next.validationErrors()
         let hasStoredPassword = !(Keychain.password(for: instanceID) ?? "").isEmpty
@@ -212,11 +198,8 @@ final class AppModel {
 
     func deleteInstance(_ id: UUID) {
         let wasActive = config.activeInstance?.id == id
-        config.instances.removeAll { $0.id == id }
+        config = config.removing(id)
         Keychain.deletePassword(for: id)
-        if wasActive || !config.instances.contains(where: { $0.id == config.activeID }) {
-            config.activeID = config.instances.first?.id
-        }
         ConfigStore.save(config)
         if wasActive {
             rebuildClient()
@@ -273,7 +256,10 @@ final class AppModel {
         if !status.isBlocking, let timer = status.timer, timer > 0 {
             next.resumesAt = Date().addingTimeInterval(timer)
         }
-        blocking = next
+        // Assign only on change: every assignment redraws each toolbar.
+        if next != blocking {
+            blocking = next
+        }
     }
 
     /// Turns blocking on, or off for `seconds` (nil means until re-enabled).

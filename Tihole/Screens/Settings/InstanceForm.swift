@@ -18,6 +18,10 @@ struct InstanceForm: View {
     @State private var testPassed = false
     @State private var testFailure: String?
 
+    private var isPlainHTTP: Bool {
+        InstanceConfig.normalizedURL(draft.url).lowercased().hasPrefix("http://")
+    }
+
     var body: some View {
         Form {
             Section {
@@ -25,7 +29,7 @@ struct InstanceForm: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .accessibilityIdentifier("instance.name")
-                TextField("http://pi.hole", text: $draft.url)
+                TextField("https://pi.hole", text: $draft.url)
                     .keyboardType(.URL)
                     .textContentType(.URL)
                     .textInputAutocapitalization(.never)
@@ -34,7 +38,12 @@ struct InstanceForm: View {
             } header: {
                 Text("Instance")
             } footer: {
-                Text("The address you open for the Pi-hole web admin, such as http://pi.hole or https://10.0.0.53.")
+                if isPlainHTTP {
+                    Text("Plain http sends your password unencrypted. Use https:// if your Pi-hole serves it.")
+                        .foregroundStyle(theme.block)
+                } else {
+                    Text("The address you open for the Pi-hole web admin, such as https://pi.hole or https://10.0.0.53.")
+                }
             }
             .rowStyle()
 

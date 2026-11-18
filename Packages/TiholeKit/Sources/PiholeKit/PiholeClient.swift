@@ -18,7 +18,6 @@ public actor PiholeClient {
 
     private let ownsSession: Bool
     private let password: String
-    private let totp: Int?
 
     private var sid: String?
     private var loginTask: Task<Void, Error>?
@@ -31,7 +30,6 @@ public actor PiholeClient {
     ///   - password: App password (preferred) or web password.
     ///   - verifyTLS: Pass false to accept a self-signed certificate from this
     ///     instance's host. Other hosts are still verified.
-    ///   - totp: TOTP code to send at login, for web passwords with 2FA.
     ///   - timeout: Per-request timeout in seconds.
     ///   - session: Overrides the URLSession (tests, custom transports). When
     ///     given, `verifyTLS` is ignored.
@@ -39,7 +37,6 @@ public actor PiholeClient {
         baseURL: String,
         password: String,
         verifyTLS: Bool = true,
-        totp: Int? = nil,
         timeout: TimeInterval = 10,
         session: URLSession? = nil
     ) {
@@ -47,7 +44,6 @@ public actor PiholeClient {
         self.baseURL = root
         self.apiURL = root + "/api"
         self.password = password
-        self.totp = totp
         self.timeout = timeout
 
         if let session {
@@ -106,12 +102,6 @@ public actor PiholeClient {
 
     func setSessionID(_ value: String?) {
         sid = value
-    }
-
-    /// True when the client currently holds a session ID.
-    public var hasSession: Bool {
-        guard let sid else { return false }
-        return !sid.isEmpty
     }
 
     // MARK: - Transport
@@ -228,10 +218,10 @@ public actor PiholeClient {
         try await task.value
     }
 
-    /// Authenticates with the stored password (and optional TOTP) and stores
-    /// the returned session ID.
+    /// Authenticates with the stored password and stores the returned
+    /// session ID. 2FA is not supported: an app password bypasses it.
     private func performLogin() async throws {
-        let body = try encodeJSON(LoginRequest(password: password, totp: totp))
+        let body = try encodeJSON(LoginRequest(password: password))
 
         let data: Data
         do {
@@ -265,12 +255,6 @@ public actor PiholeClient {
         loginTask = task
         defer { loginTask = nil }
         try await task.value
-    }
-
-    /// Checks the current session via `GET /api/auth`.
-    public func sessionValid() async throws -> PiholeSession {
-        let data = try await perform("GET", "/auth")
-        return try decode(SessionEnvelope.self, from: data, operation: "GET /auth").session
     }
 
     /// Ends the current session via `DELETE /api/auth` and forgets the
@@ -385,10 +369,9 @@ public actor PiholeClient {
     }
 }
 
-/// Body of `POST /api/auth`. A nil TOTP is omitted.
+/// Body of `POST /api/auth`.
 private struct LoginRequest: Encodable {
     let password: String
-    let totp: Int?
 }
 
 /// Accepts the server certificate for one named host without verifying it.

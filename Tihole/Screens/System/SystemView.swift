@@ -577,6 +577,7 @@ private struct SystemAction: Identifiable {
     let label: String
     let detail: String
     let icon: String
+    let perform: (PiholeClient) async throws -> Void
 }
 
 /// Destructive maintenance actions. Each needs confirmation, and FTL refuses
@@ -594,19 +595,22 @@ struct ActionsView: View {
             id: "restartdns",
             label: "Restart DNS",
             detail: "Restart the FTL DNS resolver. Brief resolution outage.",
-            icon: "arrow.clockwise.circle"
+            icon: "arrow.clockwise.circle",
+            perform: { try await $0.restartDNS() }
         ),
         SystemAction(
             id: "flush-logs",
             label: "Flush logs",
             detail: "Permanently clear the FTL query log.",
-            icon: "trash.circle"
+            icon: "trash.circle",
+            perform: { try await $0.flushLogs() }
         ),
         SystemAction(
             id: "flush-network",
             label: "Flush network",
             detail: "Permanently clear the FTL network device table.",
-            icon: "xmark.circle"
+            icon: "xmark.circle",
+            perform: { try await $0.flushNetwork() }
         ),
     ]
 
@@ -670,14 +674,7 @@ struct ActionsView: View {
         note = nil
         load.begin()
         do {
-            switch action.id {
-            case "restartdns":
-                try await client.restartDNS()
-            case "flush-logs":
-                try await client.flushLogs()
-            default:
-                try await client.flushNetwork()
-            }
+            try await action.perform(client)
             load.succeed()
             note = action.label + " done"
         } catch {

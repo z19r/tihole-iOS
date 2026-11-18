@@ -104,19 +104,60 @@ extension InstanceConfig {
         return nil
     }
 
-    /// Adds "http://" to a bare host ("pi.hole", "10.0.0.53") so people can
-    /// type what they would type into a browser.
+    /// Adds "https://" to a bare host ("pi.hole", "10.0.0.53") so people can
+    /// type what they would type into a browser. https is the default so the
+    /// password never crosses the network in clear text by accident.
     public static func normalizedURL(_ raw: String) -> String {
         var value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         if value.isEmpty {
             return value
         }
         if !value.lowercased().hasPrefix("http://") && !value.lowercased().hasPrefix("https://") {
-            value = "http://" + value
+            value = "https://" + value
         }
         while value.hasSuffix("/") {
             value.removeLast()
         }
         return value
+    }
+}
+
+extension AppConfig {
+    /// The config with instance `id` updated, or with a new instance added
+    /// when `id` is nil or unknown. If no instance is active, the saved one
+    /// becomes active. Also returns the saved instance's id.
+    public func upserting(
+        id: UUID?,
+        name: String,
+        url: String,
+        verifyTLS: Bool
+    ) -> (config: AppConfig, id: UUID) {
+        var next = self
+        let savedID: UUID
+        if let id, let index = next.instances.firstIndex(where: { $0.id == id }) {
+            next.instances[index].name = name
+            next.instances[index].url = url
+            next.instances[index].verifyTLS = verifyTLS
+            savedID = id
+        } else {
+            let instance = InstanceConfig(name: name, url: url, verifyTLS: verifyTLS)
+            next.instances.append(instance)
+            savedID = instance.id
+        }
+        if !next.instances.contains(where: { $0.id == next.activeID }) {
+            next.activeID = savedID
+        }
+        return (next, savedID)
+    }
+
+    /// The config without instance `id`. If the active instance is gone, the
+    /// first remaining one becomes active.
+    public func removing(_ id: UUID) -> AppConfig {
+        var next = self
+        next.instances.removeAll { $0.id == id }
+        if !next.instances.contains(where: { $0.id == next.activeID }) {
+            next.activeID = next.instances.first?.id
+        }
+        return next
     }
 }
