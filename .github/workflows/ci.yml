@@ -81,6 +81,9 @@ jobs:
         run: |
           udid="$(scripts/pick_simulator.py)"
           echo "Using simulator $udid"
+          # Boot it first, so the test runner does not time out waiting for
+          # accessibility while the simulator is still starting.
+          xcrun simctl bootstatus "$udid" -b
           xcodebuild test \
             -project Tihole.xcodeproj \
             -scheme Tihole \
