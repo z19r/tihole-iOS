@@ -387,6 +387,11 @@ h1 {
   font-size: 13px;
 }
 
+.fine .price {
+  color: var(--text);
+  font-size: 15px;
+}
+
 /* ---------- devices ---------- */
 
 .device {
