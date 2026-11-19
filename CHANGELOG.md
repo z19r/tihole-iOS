@@ -22,6 +22,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   DNS, flush logs and flush network.
 - The full FTL configuration tree, searchable and editable.
 - Any number of Pi-holes, with passwords in the Keychain.
+- A demo Pi-hole with sample data, from the welcome screen, to try the
+  app without a Pi-hole.
 - Gloss, Deep Night, Light Luxury and Pi-hole Classic themes, plus Auto.
 
 ### Security

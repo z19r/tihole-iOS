@@ -4,9 +4,10 @@
 Usage: asc_metadata.py <metadata-dir>
 
 Sets, on the editable App Store version and its LOCALE localization: the
-description, promotional text, keywords, support and marketing URLs, and
-copyright. On the app info: subtitle, privacy policy URL, the Utilities
-category, and an age rating with nothing to declare. On the app: the
+description, promotional text, keywords, support and marketing URLs,
+copyright, and the App Review notes. On the app info: subtitle, privacy
+policy URL, the Utilities category, and an age rating with nothing to
+declare. On the app: the
 content rights declaration. If a processed build of the same version
 exists, the newest one is selected for the version.
 
@@ -30,6 +31,7 @@ LIMITS = {
     "keywords": 100,
     "subtitle": 30,
     "copyright": 200,
+    "review_notes": 4000,
 }
 NO_AGE_CONTENT = [
     "alcoholTobaccoOrDrugUseOrReferences",
@@ -154,6 +156,20 @@ def main(folder):
         {"copyright": read(folder, "copyright")},
     )
     print("Set the copyright.")
+
+    # The review detail holds the contact details, which are filled in by
+    # hand in App Store Connect; only the notes come from the repo.
+    detail = api(
+        "GET", f"/v1/appStoreVersions/{version_id}/appStoreReviewDetail"
+    )["data"]
+    if not detail:
+        sys.exit("Fill in App Review Information in App Store Connect first.")
+    patch(
+        "appStoreReviewDetails",
+        detail["id"],
+        {"notes": read(text, "review_notes"), "demoAccountRequired": False},
+    )
+    print("Set the App Review notes.")
 
     info_id = app_info(app_id)
     patch(

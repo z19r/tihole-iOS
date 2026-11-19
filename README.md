@@ -75,17 +75,19 @@ just ci          # test + build
 ```
 
 The UI smoke test needs no Pi-hole.
-[`TiholeUITests/MockPihole.swift`](TiholeUITests/MockPihole.swift)
-is a small HTTP server that runs inside the test runner and answers like FTL,
-including rejecting requests without the session id it issued, so the test
-exercises the app's real login path. Each stop is captured as a screenshot in
-the test results; CI uploads them as the `screenshots` artifact.
+[`Tihole/Demo/MockPihole.swift`](Tihole/Demo/MockPihole.swift)
+is a small loopback HTTP server that answers like FTL, including rejecting
+requests without the session id it issued, so the test exercises the app's
+real login path. The test runner runs one copy; the app runs another as the
+demo Pi-hole behind the welcome screen's "Try the demo" button, which is how
+App Review gets in. Each stop is captured as a screenshot in the test
+results; CI uploads them as the `screenshots` artifact.
 
 ### App Store listing
 
 The listing lives in the repo. [`metadata/`](metadata) holds the
 description, promotional text, keywords, subtitle and URLs, wrapped at 80
-columns. Run the **App Store assets** workflow from the Actions tab to
+columns, and `review_notes.txt`, the notes for App Review. Run the **App Store assets** workflow from the Actions tab to
 upload the screenshots, the header image and all of that text to the
 editable version.
 
@@ -110,8 +112,9 @@ Tihole/
 ├── Store/                 Keychain passwords, saved config
 ├── Theme/                 semantic color tokens and the built-in themes
 ├── Components/            cards, banners, form frame, group picker
+├── Demo/                  the mock Pi-hole: the in-app demo and the UI tests'
 └── Screens/               one folder per tab
-TiholeUITests/             smoke test and the mock Pi-hole it uses
+TiholeUITests/             smoke test
 ```
 
 The layering is the same as the TUI's: **the client knows nothing about the
