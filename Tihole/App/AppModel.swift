@@ -154,6 +154,14 @@ final class AppModel {
             connectionProblem = "\(instance.name): \(problem)"
             return
         }
+        if instance.url == MockPihole.demoURL {
+            do {
+                try MockPihole.startDemo()
+            } catch {
+                connectionProblem = "The demo Pi-hole could not start: \(error.localizedDescription)"
+                return
+            }
+        }
         guard let password = Keychain.password(for: instance.id), !password.isEmpty else {
             connectionProblem = "No password saved for \(instance.name). Edit the instance in Settings."
             return
@@ -194,6 +202,12 @@ final class AppModel {
         if next.activeInstance?.id == instanceID {
             rebuildClient()
         }
+    }
+
+    /// Adds and activates an instance backed by the in-app demo server.
+    func addDemo() throws {
+        let draft = InstanceDraft(name: "Demo", url: MockPihole.demoURL, password: MockPihole.password)
+        try saveInstance(id: nil, draft: draft)
     }
 
     func deleteInstance(_ id: UUID) {
@@ -296,5 +310,9 @@ final class AppModel {
 
     func sceneDidBecomeActive() {
         isForeground = true
+        // iOS may close the demo server's socket while the app is suspended.
+        if activeInstance?.url == MockPihole.demoURL {
+            try? MockPihole.startDemo()
+        }
     }
 }

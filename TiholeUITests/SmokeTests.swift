@@ -177,6 +177,17 @@ final class SmokeTests: XCTestCase {
         snap("14-dashboard-final")
     }
 
+    /// The onboarding demo button starts the in-app demo Pi-hole.
+    func testDemo() throws {
+        let demo = app.buttons["onboarding.demo"]
+        XCTAssertTrue(demo.waitForExistence(timeout: 30), "demo button did not appear")
+        demo.tap()
+        XCTAssertTrue(
+            element(labelContaining: "48,213").waitForExistence(timeout: 30),
+            "demo dashboard did not load"
+        )
+    }
+
     // MARK: - Helpers
 
     /// Taps a tab. iPadOS draws its tab bar at the top, where it may not

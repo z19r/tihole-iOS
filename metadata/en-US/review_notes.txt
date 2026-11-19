@@ -1,0 +1,60 @@
+No Pi-hole is needed to review tihole. On the first screen, tap "No
+Pi-hole? Try the demo". The app starts a built-in demo Pi-hole with sample
+data, and every screen works against it. Pausing and resuming blocking
+works too. Other changes (adding a domain, editing a setting) are accepted
+but not kept, as there is no real Pi-hole behind the demo. No login,
+account or sample files are required.
+
+1. SCREEN RECORDING
+
+The screen recording, captured on a physical iPhone running the latest iOS,
+is attached to this submission. It starts at launch and goes through the
+demo: dashboard, pausing ad blocking, the query log, lists, system and
+settings. tihole has no accounts, no user-generated content and no in-app
+purchases.
+
+2. PURPOSE AND AUDIENCE
+
+Pi-hole is free, open-source software that people run on their home network
+(often on a Raspberry Pi) to block ads and trackers for every device on it,
+by answering the network's DNS lookups. tihole is a remote control for it.
+Its audience is people who run a Pi-hole at home or in a small office.
+Pi-hole's own interface is a desktop web page. tihole is a native iPhone and
+iPad app for the things people do every day: see what devices are looking
+up, pause blocking for a few minutes when a site breaks, allow or block a
+domain, and check the Pi-hole's health, across any number of Pi-holes.
+
+3. SETUP AND MAIN FEATURES
+
+Demo: tap "No Pi-hole? Try the demo" on the first screen.
+• Dashboard tab: totals, health gauges and charts.
+• The pill at the top of every tab: turn blocking off for 5, 10 or 15
+minutes, or on again. The countdown runs live.
+• Queries tab: the live query log. Swipe a row to allow or block a domain.
+• Lists tab: domains, adlists (with a gravity update), groups, clients and
+local DNS records.
+• System tab: system info, diagnostics, network devices and the DNS log.
+• Settings tab: add or switch Pi-holes, the theme, and Pi-hole's full
+configuration.
+
+With a real Pi-hole: enter its name, its address (for example
+http://192.168.1.2) and an app password created in the Pi-hole web
+interface under Settings > Web interface / API. The app then asks for
+Local Network access to reach it.
+
+4. EXTERNAL SERVICES
+
+None. tihole talks only to the Pi-hole servers the user adds, using
+Pi-hole's own REST API. There is no backend of ours, no accounts, no
+analytics, no ads, no payment processor and no AI service. Passwords are
+stored in the iOS Keychain.
+
+5. REGIONAL DIFFERENCES
+
+None. The app works the same in every region. It is in English.
+
+6. REGULATED INDUSTRY OR THIRD-PARTY MATERIAL
+
+Not applicable. tihole is an independent client for Pi-hole's public,
+documented API. It does not include Pi-hole's software or logo, and the
+listing states it is not affiliated with or endorsed by Pi-hole LLC.

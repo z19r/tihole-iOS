@@ -3,9 +3,10 @@ import Network
 
 /// A tiny HTTP server that answers like Pi-hole's FTL API with canned data.
 ///
-/// It runs inside the UI-test runner and listens on a loopback port, so the
-/// app under test can be pointed at `http://127.0.0.1:<port>` and driven end
-/// to end without a real Pi-hole. Like FTL it rejects requests that do not
+/// It listens on a loopback port only. The app runs one as its demo Pi-hole
+/// (see `startDemo`), so people without a Pi-hole, App Review included, can
+/// try every screen. The UI tests run their own copy inside the test runner
+/// and point the app at `http://127.0.0.1:<port>`. Like FTL it rejects requests that do not
 /// carry the session id it issued at login, so the app's real login path is
 /// exercised.
 final class MockPihole {
@@ -38,17 +39,38 @@ final class MockPihole {
     static let sessionID = "mock-session"
     static let password = "mock-password"
 
+    /// The demo instance's address. The port is fixed so the saved instance
+    /// still points at the server after the app relaunches.
+    static let demoURL = "http://127.0.0.1:47053"
+    @MainActor private static var demo: MockPihole?
+
+    /// Starts the in-app demo server, or restarts it if iOS tore its socket
+    /// down while the app was suspended.
+    @MainActor static func startDemo() throws {
+        if demo?.listener.state == .ready {
+            return
+        }
+        demo?.stop()
+        demo = nil
+        let server = try MockPihole(port: 47053)
+        try server.start()
+        demo = server
+    }
+
     private let listener: NWListener
     private let queue = DispatchQueue(label: "mock-pihole")
 
     // Mutable server state, touched only on `queue`.
     private var blockingEnabled = true
-    private var blockingTimer: Double?
+    private var blockingResumesAt: Date?
 
     private(set) var port: UInt16 = 0
 
-    init() throws {
-        listener = try NWListener(using: .tcp)
+    init(port: NWEndpoint.Port = .any) throws {
+        let parameters = NWParameters.tcp
+        parameters.requiredLocalEndpoint = .hostPort(host: .ipv4(.loopback), port: port)
+        parameters.allowLocalEndpointReuse = true
+        listener = try NWListener(using: parameters)
     }
 
     func start() throws {
@@ -190,12 +212,17 @@ final class MockPihole {
 
         if path == "/dns/blocking" {
             if request.method == "POST" {
-                let sent = String(decoding: request.body, as: UTF8.self)
-                blockingEnabled = sent.contains("\"blocking\":true")
-                blockingTimer = (!blockingEnabled && sent.contains("\"timer\":300")) ? 300 : nil
+                let sent = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any]
+                blockingEnabled = sent?["blocking"] as? Bool ?? true
+                let seconds = blockingEnabled ? nil : sent?["timer"] as? Double
+                blockingResumesAt = seconds.map { Date().addingTimeInterval($0) }
+            }
+            if let resumesAt = blockingResumesAt, resumesAt <= Date() {
+                blockingEnabled = true
+                blockingResumesAt = nil
             }
             let state = blockingEnabled ? "enabled" : "disabled"
-            let timer = blockingTimer.map { String(Int($0)) } ?? "null"
+            let timer = blockingResumesAt.map { String(Int($0.timeIntervalSinceNow.rounded())) } ?? "null"
             return .json(#"{"blocking":"\#(state)","timer":\#(timer),"took":0}"#)
         }
 

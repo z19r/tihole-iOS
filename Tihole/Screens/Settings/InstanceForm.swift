@@ -177,7 +177,9 @@ struct InstanceForm: View {
 
 /// First run: there is no instance yet, so the only thing to do is add one.
 struct OnboardingView: View {
+    @Environment(AppModel.self) private var app
     @Environment(\.theme) private var theme
+    @State private var demoError: String?
 
     var body: some View {
         NavigationStack {
@@ -189,6 +191,16 @@ struct OnboardingView: View {
                     Text("Your Pi-hole, in your pocket.")
                         .font(.subheadline)
                         .foregroundStyle(theme.subtle)
+                    Button("No Pi-hole? Try the demo") {
+                        do {
+                            try app.addDemo()
+                        } catch {
+                            demoError = error.localizedDescription
+                        }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.top, 6)
+                    .accessibilityIdentifier("onboarding.demo")
                 }
                 .padding(.vertical, 20)
                 .frame(maxWidth: .infinity)
@@ -197,6 +209,11 @@ struct OnboardingView: View {
                 InstanceForm(existing: nil)
             }
             .background(theme.surface.ignoresSafeArea())
+            .alert("Demo unavailable", isPresented: .constant(demoError != nil)) {
+                Button("OK") { demoError = nil }
+            } message: {
+                Text(demoError ?? "")
+            }
             .navigationTitle("Welcome")
             .navigationBarTitleDisplayMode(.inline)
         }
