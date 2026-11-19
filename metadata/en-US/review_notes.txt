@@ -7,11 +7,16 @@ account or sample files are required.
 
 1. SCREEN RECORDING
 
-The screen recording, captured on a physical iPhone running the latest iOS,
-is attached to this submission. It starts at launch and goes through the
-demo: dashboard, pausing ad blocking, the query log, lists, system and
-settings. tihole has no accounts, no user-generated content and no in-app
-purchases.
+https://storage.googleapis.com/zrk-web-test/tihole-pi-demo.mp4
+
+Recorded on a physical iPhone. It starts by launching the app from the
+Home Screen and uses a real Pi-hole: the dashboard, the query log and a
+query's detail, pausing blocking, adlists and the other lists, network
+devices, destructive actions, themes, adding a Pi-hole, and editing
+a configuration setting. It was recorded on an earlier TestFlight build,
+before the demo button was added; the demo shows the same screens with
+sample data. tihole has no accounts, no user-generated content and no
+in-app purchases.
 
 2. PURPOSE AND AUDIENCE
 
