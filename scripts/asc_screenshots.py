@@ -85,7 +85,26 @@ def editable_version(app_id):
             attributes.get("appVersionState"),
         }
         if states & EDITABLE:
-            print(f"Using version {attributes.get('versionString')}.")
+            # Keep the store version in step with project.yml, so the
+            # build it selects (same version string) is the one uploaded.
+            number = marketing_version()
+            if attributes.get("versionString") != number:
+                print(
+                    f"Renaming version {attributes.get('versionString')}"
+                    f" to {number}."
+                )
+                api(
+                    "PATCH",
+                    f"/v1/appStoreVersions/{version['id']}",
+                    {
+                        "data": {
+                            "type": "appStoreVersions",
+                            "id": version["id"],
+                            "attributes": {"versionString": number},
+                        }
+                    },
+                )
+            print(f"Using version {number}.")
             return version["id"]
     number = marketing_version()
     print(f"No editable version; creating {number}.")
