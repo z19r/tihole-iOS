@@ -88,8 +88,8 @@ results; CI uploads them as the `screenshots` artifact.
 The listing lives in the repo. [`metadata/`](metadata) holds the
 description, promotional text, keywords, subtitle and URLs, wrapped at 80
 columns, and `review_notes.txt`, the notes for App Review. Run the
-**App Store assets** workflow from the Actions tab to upload the screenshots, the header image and all of that text to the
-editable version.
+**App Store assets** workflow from the Actions tab to upload the
+screenshots, the header image and all of that text to the editable version.
 
 ### Website
 
