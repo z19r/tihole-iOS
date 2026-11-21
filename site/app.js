@@ -187,12 +187,4 @@
     store.textContent = " Download on the App Store";
   }
 
-  // ---------- analytics ----------
-  if (config.umamiWebsiteId && location.hostname !== "localhost") {
-    var tag = document.createElement("script");
-    tag.defer = true;
-    tag.src = "https://cloud.umami.is/script.js";
-    tag.setAttribute("data-website-id", config.umamiWebsiteId);
-    document.head.appendChild(tag);
-  }
 })();
