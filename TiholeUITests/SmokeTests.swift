@@ -34,16 +34,13 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(
             name.waitForExistence(timeout: 30), "onboarding form did not appear"
         )
-        name.tap()
-        name.typeText("home")
+        type("home", into: name)
 
         let url = app.textFields["instance.url"]
-        url.tap()
-        url.typeText("http://127.0.0.1:\(server.port)")
+        type("http://127.0.0.1:\(server.port)", into: url)
 
         let password = app.textFields["instance.password"]
-        password.tap()
-        password.typeText(MockPihole.password + "\n")
+        type(MockPihole.password + "\n", into: password)
         snap("01-onboarding")
 
         let test = app.buttons["instance.test"]
@@ -205,6 +202,22 @@ final class SmokeTests: XCTestCase {
 
     /// Taps a tab. iPadOS draws its tab bar at the top, where it may not
     /// show up as a tab bar, so fall back to any button with that name.
+    /// Taps `field` until it has keyboard focus, then types. On iPad a tap
+    /// that lands while the onboarding form is still settling is dropped,
+    /// and typing then fails with "no keyboard focus".
+    private func type(_ text: String, into field: XCUIElement) {
+        let focused = NSPredicate(format: "hasKeyboardFocus == true")
+        for _ in 0..<5 {
+            field.tap()
+            let wait = XCTNSPredicateExpectation(
+                predicate: focused, object: field)
+            if XCTWaiter.wait(for: [wait], timeout: 2) == .completed {
+                break
+            }
+        }
+        field.typeText(text)
+    }
+
     private func openTab(_ name: String) {
         let inTabBar = app.tabBars.buttons[name]
         (inTabBar.exists ? inTabBar : app.buttons[name].firstMatch).tap()
