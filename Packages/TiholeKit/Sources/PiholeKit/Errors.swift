@@ -2,7 +2,7 @@ import Foundation
 
 /// A decoded FTL error envelope from a non-2xx response:
 ///
-///     { "error": { "key": "...", "message": "...", "hint": "..." }, "took": 0.0 }
+/// { "error": { "key": "...", "message": "...", "hint": "..." }, "took": 0.0 }
 public struct APIError: Error, Equatable, Sendable {
     /// HTTP status code.
     public var status: Int
@@ -13,7 +13,9 @@ public struct APIError: Error, Equatable, Sendable {
     /// Optional remediation hint.
     public var hint: String
 
-    public init(status: Int, key: String = "", message: String = "", hint: String = "") {
+    public init(
+        status: Int, key: String = "", message: String = "", hint: String = ""
+    ) {
         self.status = status
         self.key = key
         self.message = message
@@ -57,7 +59,9 @@ extension PiholeError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .api(let error):
-            let base = error.message.isEmpty ? statusMessage(error.status) : error.message
+            let base =
+                error.message.isEmpty
+                ? statusMessage(error.status) : error.message
             if error.hint.isEmpty {
                 return "\(base) (status \(error.status))"
             }
@@ -106,7 +110,10 @@ func decodeAPIError(status: Int, data: Data) -> APIError {
         apiError.message = "empty error response"
         return apiError
     }
-    guard let envelope = try? JSONDecoder().decode(FTLErrorEnvelope.self, from: data) else {
+    guard
+        let envelope = try? JSONDecoder().decode(
+            FTLErrorEnvelope.self, from: data)
+    else {
         // Not JSON: surface the (usually short, plain-text) body verbatim.
         apiError.message = String(decoding: data, as: UTF8.self)
         return apiError

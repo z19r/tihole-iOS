@@ -26,7 +26,8 @@ struct LoadState: Equatable {
         if ErrorText.isCancellation(error) {
             return
         }
-        self.error = destructive
+        self.error =
+            destructive
             ? ErrorText.describeDestructive(error)
             : ErrorText.describe(error)
     }
@@ -73,7 +74,10 @@ struct Card<Content: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(theme.panel, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(
+            theme.panel,
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(theme.border, lineWidth: 1)
@@ -97,7 +101,10 @@ struct ErrorBanner: View {
                 .foregroundStyle(theme.block)
         }
         .padding(10)
-        .background(theme.block.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(
+            theme.block.opacity(0.14),
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(theme.block.opacity(0.5), lineWidth: 1)
@@ -122,7 +129,9 @@ struct NoteBanner: View {
                 .foregroundStyle(theme.allow)
         }
         .padding(10)
-        .background(theme.allow.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(
+            theme.allow.opacity(0.14),
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -259,7 +268,9 @@ struct BannerSection: View {
                 }
             }
             .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+            .listRowInsets(
+                EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0)
+            )
             .listRowSeparator(.hidden)
         }
     }
@@ -303,7 +314,8 @@ struct GroupPickerSection: View {
                             }
                         }
                     }
-                    .accessibilityAddTraits(selection.contains(group.id) ? .isSelected : [])
+                    .accessibilityAddTraits(
+                        selection.contains(group.id) ? .isSelected : [])
                 }
             } else if loadFailed {
                 TextField("Group ids, e.g. 0, 2", text: $typedIDs)

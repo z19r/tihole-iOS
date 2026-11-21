@@ -19,13 +19,13 @@ struct InstanceForm: View {
     @State private var testFailure: String?
 
     #if DEBUG
-    /// UI tests (launched with --reset-state) type the password into a
-    /// plain field: a SecureField makes iOS offer to save the password, and
-    /// that prompt blocks taps at random moments.
-    private static let plainPassword =
-        ProcessInfo.processInfo.arguments.contains("--reset-state")
+        /// UI tests (launched with --reset-state) type the password into a
+        /// plain field: a SecureField makes iOS offer to save the password, and
+        /// that prompt blocks taps at random moments.
+        private static let plainPassword =
+            ProcessInfo.processInfo.arguments.contains("--reset-state")
     #else
-    private static let plainPassword = false
+        private static let plainPassword = false
     #endif
 
     private var passwordPrompt: String {
@@ -33,7 +33,8 @@ struct InstanceForm: View {
     }
 
     private var isPlainHTTP: Bool {
-        InstanceConfig.normalizedURL(draft.url).lowercased().hasPrefix("http://")
+        InstanceConfig.normalizedURL(draft.url).lowercased().hasPrefix(
+            "http://")
     }
 
     var body: some View {
@@ -53,10 +54,20 @@ struct InstanceForm: View {
                 Text("Instance")
             } footer: {
                 if isPlainHTTP {
-                    Text("Plain http sends your password unencrypted. Use https:// if your Pi-hole serves it.")
-                        .foregroundStyle(theme.block)
+                    Text(
+                        """
+                        Plain http sends your password unencrypted. Use \
+                        https:// if your Pi-hole serves it.
+                        """
+                    )
+                    .foregroundStyle(theme.block)
                 } else {
-                    Text("The address you open for the Pi-hole web admin, such as https://pi.hole or https://10.0.0.53.")
+                    Text(
+                        """
+                        The address you open for the Pi-hole web admin, such \
+                        as https://pi.hole or https://10.0.0.53.
+                        """
+                    )
                 }
             }
             .rowStyle()
@@ -74,14 +85,25 @@ struct InstanceForm: View {
             } header: {
                 Text("Password")
             } footer: {
-                Text("An app password from Pi-hole's web interface settings works best, because it is not subject to two-factor prompts. It is stored in this device's Keychain.")
+                Text(
+                    """
+                    An app password from Pi-hole's web interface settings \
+                    works best, because it is not subject to two-factor \
+                    prompts. It is stored in this device's Keychain.
+                    """
+                )
             }
             .rowStyle()
 
             Section {
                 Toggle("Verify TLS certificate", isOn: $draft.verifyTLS)
             } footer: {
-                Text("Turn this off only for a Pi-hole that uses a self-signed certificate.")
+                Text(
+                    """
+                    Turn this off only for a Pi-hole that uses a self-signed \
+                    certificate.
+                    """
+                )
             }
             .rowStyle()
 
@@ -164,7 +186,8 @@ struct InstanceForm: View {
         testPassed = false
         testFailure = nil
         do {
-            try await AppModel.testConnection(draft: draft, existingID: existing?.id)
+            try await AppModel.testConnection(
+                draft: draft, existingID: existing?.id)
             testPassed = true
         } catch {
             if !ErrorText.isCancellation(error) {
@@ -186,7 +209,9 @@ struct OnboardingView: View {
             VStack(spacing: 0) {
                 VStack(spacing: 6) {
                     Text("tihole")
-                        .font(.system(size: 44, weight: .heavy, design: .rounded))
+                        .font(
+                            .system(size: 44, weight: .heavy, design: .rounded)
+                        )
                         .foregroundStyle(theme.gradient)
                     Text("Your Pi-hole, in your pocket.")
                         .font(.subheadline)
@@ -209,7 +234,8 @@ struct OnboardingView: View {
                 InstanceForm(existing: nil)
             }
             .background(theme.surface.ignoresSafeArea())
-            .alert("Demo unavailable", isPresented: .constant(demoError != nil)) {
+            .alert("Demo unavailable", isPresented: .constant(demoError != nil))
+            {
                 Button("OK") { demoError = nil }
             } message: {
                 Text(demoError ?? "")

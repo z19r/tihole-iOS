@@ -92,7 +92,8 @@ struct LocalDNSView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
-                .accessibilityLabel(kind == .hosts ? "Add host record" : "Add CNAME record")
+                .accessibilityLabel(
+                    kind == .hosts ? "Add host record" : "Add CNAME record")
             }
         }
         .refreshable {
@@ -129,7 +130,9 @@ struct LocalDNSView: View {
     @ViewBuilder
     private var hostRows: some View {
         if hosts.isEmpty {
-            ListPlaceholder(load: load, loadingText: "Loading records…", emptyText: "No host records")
+            ListPlaceholder(
+                load: load, loadingText: "Loading records…",
+                emptyText: "No host records")
         } else {
             ForEach(hosts) { record in
                 recordRow(name: record.domain, target: record.ip, extra: nil)
@@ -148,7 +151,9 @@ struct LocalDNSView: View {
     @ViewBuilder
     private var cnameRows: some View {
         if cnames.isEmpty {
-            ListPlaceholder(load: load, loadingText: "Loading records…", emptyText: "No CNAME records")
+            ListPlaceholder(
+                load: load, loadingText: "Loading records…",
+                emptyText: "No CNAME records")
         } else {
             ForEach(cnames) { record in
                 recordRow(
@@ -168,7 +173,9 @@ struct LocalDNSView: View {
         }
     }
 
-    private func recordRow(name: String, target: String, extra: String?) -> some View {
+    private func recordRow(name: String, target: String, extra: String?)
+        -> some View
+    {
         VStack(alignment: .leading, spacing: 3) {
             Text(Format.orDash(name))
                 .font(.callout.monospaced())
@@ -269,7 +276,9 @@ private struct LocalRecordForm: View {
             Section {
                 switch kind {
                 case .hosts:
-                    field("IP address", placeholder: "192.0.2.10 or fd00::10", text: $first)
+                    field(
+                        "IP address", placeholder: "192.0.2.10 or fd00::10",
+                        text: $first)
                     field("Domain", placeholder: "host.lan", text: $second)
                 case .cnames:
                     field("Domain", placeholder: "alias.lan", text: $first)
@@ -282,14 +291,21 @@ private struct LocalRecordForm: View {
                 }
             } footer: {
                 if kind == .cnames {
-                    Text("The target must be a domain Pi-hole already knows, such as a host record or a DHCP lease.")
+                    Text(
+                        """
+                        The target must be a domain Pi-hole already knows, \
+                        such as a host record or a DHCP lease.
+                        """
+                    )
                 }
             }
             .rowStyle()
         }
     }
 
-    private func field(_ label: String, placeholder: String, text: Binding<String>) -> some View {
+    private func field(
+        _ label: String, placeholder: String, text: Binding<String>
+    ) -> some View {
         LabeledContent(label) {
             TextField(placeholder, text: text)
                 .font(.body.monospaced())
@@ -311,10 +327,12 @@ private struct LocalRecordForm: View {
         do {
             switch kind {
             case .hosts:
-                try await client.addHostRecord(ip: trimmedFirst, domain: trimmedSecond)
+                try await client.addHostRecord(
+                    ip: trimmedFirst, domain: trimmedSecond)
             case .cnames:
                 let seconds = Int(ttl.trimmingCharacters(in: .whitespaces)) ?? 0
-                try await client.addCNAMERecord(domain: trimmedFirst, target: trimmedSecond, ttl: seconds)
+                try await client.addCNAMERecord(
+                    domain: trimmedFirst, target: trimmedSecond, ttl: seconds)
             }
             await onSaved()
             dismiss()

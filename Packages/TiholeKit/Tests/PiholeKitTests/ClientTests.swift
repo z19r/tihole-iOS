@@ -1,14 +1,21 @@
 import Foundation
 import XCTest
+
 @testable import PiholeKit
 
 final class ClientTests: MockFTLTestCase {
     func testNormalizesBaseURL() {
-        XCTAssertEqual(PiholeClient.normalize("https://pi.hole"), "https://pi.hole")
-        XCTAssertEqual(PiholeClient.normalize("https://pi.hole/"), "https://pi.hole")
-        XCTAssertEqual(PiholeClient.normalize("https://pi.hole/api"), "https://pi.hole")
-        XCTAssertEqual(PiholeClient.normalize("https://pi.hole/api/"), "https://pi.hole")
-        XCTAssertEqual(PiholeClient.normalize("  http://10.0.0.53//  "), "http://10.0.0.53")
+        XCTAssertEqual(
+            PiholeClient.normalize("https://pi.hole"), "https://pi.hole")
+        XCTAssertEqual(
+            PiholeClient.normalize("https://pi.hole/"), "https://pi.hole")
+        XCTAssertEqual(
+            PiholeClient.normalize("https://pi.hole/api"), "https://pi.hole")
+        XCTAssertEqual(
+            PiholeClient.normalize("https://pi.hole/api/"), "https://pi.hole")
+        XCTAssertEqual(
+            PiholeClient.normalize("  http://10.0.0.53//  "), "http://10.0.0.53"
+        )
     }
 
     func testSendsSessionHeader() async throws {
@@ -29,9 +36,17 @@ final class ClientTests: MockFTLTestCase {
                 return .authOK("FRESH")
             }
             if request.sid == "FRESH" {
-                return .json(200, #"{"groups":[{"name":"default","id":0,"enabled":true}]}"#)
+                return .json(
+                    200,
+                    #"{"groups":[{"name":"default","id":0,"enabled":true}]}"#)
             }
-            return .json(401, #"{"error":{"key":"unauthorized","message":"Unauthorized","hint":null},"took":0}"#)
+            return .json(
+                401,
+                #"""
+                {"error":{"key":"unauthorized","message":"Unauthorized",
+                 "hint":null},"took":0}
+                """#
+            )
         }
         await client.setSessionID("STALE")
 
@@ -49,7 +64,8 @@ final class ClientTests: MockFTLTestCase {
             if request.rawPath == "/api/auth" {
                 return .authOK("FRESH")
             }
-            return request.sid == "FRESH" ? .json(200, #"{"groups":[]}"#) : .json(401, "{}")
+            return request.sid == "FRESH"
+                ? .json(200, #"{"groups":[]}"#) : .json(401, "{}")
         }
         await client.setSessionID("STALE")
 
@@ -65,7 +81,13 @@ final class ClientTests: MockFTLTestCase {
             if request.rawPath == "/api/auth" {
                 return .authOK("FRESH")
             }
-            return .json(401, #"{"error":{"key":"unauthorized","message":"Unauthorized"},"took":0}"#)
+            return .json(
+                401,
+                #"""
+                {"error":{"key":"unauthorized","message":"Unauthorized"},
+                 "took":0}
+                """#
+            )
         }
 
         do {
@@ -81,7 +103,13 @@ final class ClientTests: MockFTLTestCase {
 
     func testDecodesErrorEnvelope() async throws {
         let client = await makeAuthedClient(
-            .json(400, #"{"error":{"key":"bad_request","message":"Invalid domain","hint":"check syntax"},"took":0.001}"#)
+            .json(
+                400,
+                #"""
+                {"error":{"key":"bad_request","message":"Invalid domain",
+                 "hint":"check syntax"},"took":0.001}
+                """#
+            )
         )
 
         do {
@@ -90,7 +118,9 @@ final class ClientTests: MockFTLTestCase {
         } catch let error as PiholeError {
             XCTAssertEqual(
                 error.apiError,
-                APIError(status: 400, key: "bad_request", message: "Invalid domain", hint: "check syntax")
+                APIError(
+                    status: 400, key: "bad_request", message: "Invalid domain",
+                    hint: "check syntax")
             )
         }
     }
@@ -138,7 +168,8 @@ final class ClientTests: MockFTLTestCase {
             if request.rawPath == "/api/auth" {
                 return .authOK("ONE")
             }
-            return request.sid == "ONE" ? .json(200, #"{"groups":[]}"#) : .json(401, "{}")
+            return request.sid == "ONE"
+                ? .json(200, #"{"groups":[]}"#) : .json(401, "{}")
         }
 
         try await withThrowingTaskGroup(of: Void.self) { group in
@@ -174,7 +205,13 @@ final class AuthTests: MockFTLTestCase {
         // A rejected login returns 401 with a session object, not an FTL
         // error envelope.
         let client = makeClient { _ in
-            .json(401, #"{"session":{"valid":false,"sid":null,"message":"password incorrect"},"took":0}"#)
+            .json(
+                401,
+                #"""
+                {"session":{"valid":false,"sid":null,
+                 "message":"password incorrect"},"took":0}
+                """#
+            )
         }
 
         do {
@@ -193,7 +230,13 @@ final class AuthTests: MockFTLTestCase {
 
     func testInvalidSessionBodyIsAuthError() async throws {
         let client = makeClient { _ in
-            .json(200, #"{"session":{"valid":false,"sid":"","message":"no seats"},"took":0}"#)
+            .json(
+                200,
+                #"""
+                {"session":{"valid":false,"sid":"","message":"no seats"},
+                 "took":0}
+                """#
+            )
         }
 
         do {
@@ -232,17 +275,30 @@ final class ErrorTests: XCTestCase {
     func testDecodesFullEnvelope() {
         let error = decodeAPIError(
             status: 403,
-            data: Data(#"{"error":{"key":"forbidden","message":"Nope","hint":"enable it"},"took":0}"#.utf8)
+            data: Data(
+                #"""
+                {"error":{"key":"forbidden","message":"Nope",
+                 "hint":"enable it"},"took":0}
+                """#
+                .utf8)
         )
-        XCTAssertEqual(error, APIError(status: 403, key: "forbidden", message: "Nope", hint: "enable it"))
+        XCTAssertEqual(
+            error,
+            APIError(
+                status: 403, key: "forbidden", message: "Nope",
+                hint: "enable it"))
     }
 
     func testEmptyBody() {
-        XCTAssertEqual(decodeAPIError(status: 500, data: Data()).message, "empty error response")
+        XCTAssertEqual(
+            decodeAPIError(status: 500, data: Data()).message,
+            "empty error response")
     }
 
     func testPlainTextBodyIsSurfacedVerbatim() {
-        XCTAssertEqual(decodeAPIError(status: 502, data: Data("Bad Gateway".utf8)).message, "Bad Gateway")
+        XCTAssertEqual(
+            decodeAPIError(status: 502, data: Data("Bad Gateway".utf8)).message,
+            "Bad Gateway")
     }
 
     func testJSONWithoutEnvelopeNeverLeaksBody() {
@@ -256,9 +312,13 @@ final class ErrorTests: XCTestCase {
 
     func testDescriptionIncludesHint() {
         let error = PiholeError.api(
-            APIError(status: 403, key: "forbidden", message: "Not allowed", hint: "Enable allow_destructive")
+            APIError(
+                status: 403, key: "forbidden", message: "Not allowed",
+                hint: "Enable allow_destructive")
         )
-        XCTAssertEqual(error.errorDescription, "Not allowed (status 403). Enable allow_destructive")
+        XCTAssertEqual(
+            error.errorDescription,
+            "Not allowed (status 403). Enable allow_destructive")
         XCTAssertEqual(error.status, 403)
     }
 }
@@ -267,7 +327,12 @@ final class JSONValueTests: XCTestCase {
     func testDecodesEveryKind() throws {
         let value = try JSONDecoder().decode(
             JSONValue.self,
-            from: Data(#"{"a":null,"b":true,"c":1,"d":1.5,"e":"x","f":[1,"y"],"g":{"h":false}}"#.utf8)
+            from: Data(
+                #"""
+                {"a":null,"b":true,"c":1,"d":1.5,"e":"x","f":[1,"y"],
+                 "g":{"h":false}}
+                """#
+                .utf8)
         )
 
         XCTAssertEqual(value["a"], .null)
@@ -281,12 +346,15 @@ final class JSONValueTests: XCTestCase {
     }
 
     func testBooleansAndNumbersStayDistinct() throws {
-        let value = try JSONDecoder().decode(JSONValue.self, from: Data(#"[true,1,false,0]"#.utf8))
-        XCTAssertEqual(value, .array([.bool(true), .number(1), .bool(false), .number(0)]))
+        let value = try JSONDecoder().decode(
+            JSONValue.self, from: Data(#"[true,1,false,0]"#.utf8))
+        XCTAssertEqual(
+            value, .array([.bool(true), .number(1), .bool(false), .number(0)]))
     }
 
     func testWholeNumbersEncodeAsIntegers() throws {
-        let data = try JSONEncoder().encode(JSONValue.array([.number(85), .number(0.5)]))
+        let data = try JSONEncoder().encode(
+            JSONValue.array([.number(85), .number(0.5)]))
         XCTAssertEqual(String(decoding: data, as: UTF8.self), "[85,0.5]")
     }
 }

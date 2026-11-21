@@ -164,13 +164,16 @@ extension PiholeClient {
     /// countdown timer.
     public func blocking() async throws -> BlockingStatus {
         let data = try await perform("GET", "/dns/blocking")
-        return try decode(BlockingStatus.self, from: data, operation: "GET /dns/blocking")
+        return try decode(
+            BlockingStatus.self, from: data, operation: "GET /dns/blocking")
     }
 
     /// `POST /api/dns/blocking`. `timer` is the number of seconds after which
     /// blocking reverts, or nil for a permanent change.
-    public func setBlocking(_ blocking: Bool, timer: Double? = nil) async throws {
-        let body = try encodeJSON(BlockingRequest(blocking: blocking, timer: timer))
+    public func setBlocking(_ blocking: Bool, timer: Double? = nil) async throws
+    {
+        let body = try encodeJSON(
+            BlockingRequest(blocking: blocking, timer: timer))
         _ = try await perform("POST", "/dns/blocking", body: body)
     }
 
@@ -179,35 +182,48 @@ extension PiholeClient {
     /// `GET /api/stats/summary`.
     public func summary() async throws -> Summary {
         let data = try await perform("GET", "/stats/summary")
-        return try decode(Summary.self, from: data, operation: "GET /stats/summary")
+        return try decode(
+            Summary.self, from: data, operation: "GET /stats/summary")
     }
 
     /// `GET /api/stats/upstreams`.
     public func upstreams() async throws -> Upstreams {
         let data = try await perform("GET", "/stats/upstreams")
-        return try decode(Upstreams.self, from: data, operation: "GET /stats/upstreams")
+        return try decode(
+            Upstreams.self, from: data, operation: "GET /stats/upstreams")
     }
 
     /// `GET /api/stats/query_types`.
     public func queryTypes() async throws -> QueryTypes {
         let data = try await perform("GET", "/stats/query_types")
-        return try decode(QueryTypes.self, from: data, operation: "GET /stats/query_types")
+        return try decode(
+            QueryTypes.self, from: data, operation: "GET /stats/query_types")
     }
 
     /// `GET /api/stats/top_domains`. A non-positive `count` omits the
     /// parameter (server default).
-    public func topDomains(blocked: Bool, count: Int = 0) async throws -> TopDomains {
-        let path = "/stats/top_domains" + PiholeClient.topQuery(blocked: blocked, count: count)
+    public func topDomains(blocked: Bool, count: Int = 0) async throws
+        -> TopDomains
+    {
+        let path =
+            "/stats/top_domains"
+            + PiholeClient.topQuery(blocked: blocked, count: count)
         let data = try await perform("GET", path)
-        return try decode(TopDomains.self, from: data, operation: "GET /stats/top_domains")
+        return try decode(
+            TopDomains.self, from: data, operation: "GET /stats/top_domains")
     }
 
     /// `GET /api/stats/top_clients`. A non-positive `count` omits the
     /// parameter (server default).
-    public func topClients(blocked: Bool, count: Int = 0) async throws -> TopClients {
-        let path = "/stats/top_clients" + PiholeClient.topQuery(blocked: blocked, count: count)
+    public func topClients(blocked: Bool, count: Int = 0) async throws
+        -> TopClients
+    {
+        let path =
+            "/stats/top_clients"
+            + PiholeClient.topQuery(blocked: blocked, count: count)
         let data = try await perform("GET", path)
-        return try decode(TopClients.self, from: data, operation: "GET /stats/top_clients")
+        return try decode(
+            TopClients.self, from: data, operation: "GET /stats/top_clients")
     }
 
     static func topQuery(blocked: Bool, count: Int) -> String {
@@ -223,28 +239,36 @@ extension PiholeClient {
     /// `GET /api/history`: queries-over-time buckets.
     public func history() async throws -> QueryHistory {
         let data = try await perform("GET", "/history")
-        return try decode(QueryHistory.self, from: data, operation: "GET /history")
+        return try decode(
+            QueryHistory.self, from: data, operation: "GET /history")
     }
 
     // MARK: - Queries
 
     /// `GET /api/queries` with cursor pagination.
-    public func queries(_ filter: QueryFilter = QueryFilter()) async throws -> QueriesPage {
+    public func queries(_ filter: QueryFilter = QueryFilter()) async throws
+        -> QueriesPage
+    {
         let path = "/queries" + Escape.queryString(filter.items)
         let data = try await perform("GET", path)
-        return try decode(QueriesPage.self, from: data, operation: "GET /queries")
+        return try decode(
+            QueriesPage.self, from: data, operation: "GET /queries")
     }
 
     // MARK: - Domains
 
-    static func domainPath(_ type: DomainType, _ kind: DomainKind, _ domain: String) -> String {
+    static func domainPath(
+        _ type: DomainType, _ kind: DomainKind, _ domain: String
+    ) -> String {
         "/domains/\(type.rawValue)/\(kind.rawValue)/\(Escape.segment(domain))"
     }
 
     /// `GET /api/domains`: every managed allow/deny domain.
     public func domains() async throws -> [ManagedDomain] {
         let data = try await perform("GET", "/domains")
-        return try decode(DomainsEnvelope.self, from: data, operation: "GET /domains").domains
+        return try decode(
+            DomainsEnvelope.self, from: data, operation: "GET /domains"
+        ).domains
     }
 
     /// `POST /api/domains/{type}/{kind}`. FTL requires the item in the body on
@@ -259,11 +283,13 @@ extension PiholeClient {
         groups: [Int]? = nil
     ) async throws -> ManagedDomain {
         let body = try encodeJSON(
-            DomainCreateRequest(domain: domain, comment: comment, groups: groups, enabled: true)
+            DomainCreateRequest(
+                domain: domain, comment: comment, groups: groups, enabled: true)
         )
         let path = "/domains/\(type.rawValue)/\(kind.rawValue)"
         let data = try await perform("POST", path, body: body)
-        let envelope = try decode(DomainsEnvelope.self, from: data, operation: "POST " + path)
+        let envelope = try decode(
+            DomainsEnvelope.self, from: data, operation: "POST " + path)
         return envelope.domains.first ?? ManagedDomain()
     }
 
@@ -278,17 +304,22 @@ extension PiholeClient {
         enabled: Bool
     ) async throws -> ManagedDomain {
         let body = try encodeJSON(
-            DomainUpdateRequest(comment: comment, groups: groups, enabled: enabled)
+            DomainUpdateRequest(
+                comment: comment, groups: groups, enabled: enabled)
         )
         let path = PiholeClient.domainPath(type, kind, domain)
         let data = try await perform("PUT", path, body: body)
-        let envelope = try decode(DomainsEnvelope.self, from: data, operation: "PUT /domains")
+        let envelope = try decode(
+            DomainsEnvelope.self, from: data, operation: "PUT /domains")
         return envelope.domains.first ?? ManagedDomain()
     }
 
     /// `DELETE /api/domains/{type}/{kind}/{domain}`.
-    public func deleteDomain(type: DomainType, kind: DomainKind, domain: String) async throws {
-        _ = try await perform("DELETE", PiholeClient.domainPath(type, kind, domain))
+    public func deleteDomain(type: DomainType, kind: DomainKind, domain: String)
+        async throws
+    {
+        _ = try await perform(
+            "DELETE", PiholeClient.domainPath(type, kind, domain))
     }
 
     // MARK: - Groups
@@ -296,24 +327,35 @@ extension PiholeClient {
     /// `GET /api/groups`: every configured group.
     public func groups() async throws -> [PiholeGroup] {
         let data = try await perform("GET", "/groups")
-        return try decode(GroupsEnvelope.self, from: data, operation: "GET /groups").groups
+        return try decode(
+            GroupsEnvelope.self, from: data, operation: "GET /groups"
+        ).groups
     }
 
     /// `POST /api/groups`. The new group is enabled.
     @discardableResult
-    public func addGroup(name: String, comment: String = "") async throws -> PiholeGroup {
-        let body = try encodeJSON(GroupCreateRequest(name: name, comment: comment, enabled: true))
+    public func addGroup(name: String, comment: String = "") async throws
+        -> PiholeGroup
+    {
+        let body = try encodeJSON(
+            GroupCreateRequest(name: name, comment: comment, enabled: true))
         let data = try await perform("POST", "/groups", body: body)
-        let envelope = try decode(GroupsEnvelope.self, from: data, operation: "POST /groups")
+        let envelope = try decode(
+            GroupsEnvelope.self, from: data, operation: "POST /groups")
         return envelope.groups.first ?? PiholeGroup()
     }
 
     /// `PUT /api/groups/{name}`.
     @discardableResult
-    public func updateGroup(name: String, comment: String, enabled: Bool) async throws -> PiholeGroup {
-        let body = try encodeJSON(GroupUpdateRequest(comment: comment, enabled: enabled))
-        let data = try await perform("PUT", "/groups/" + Escape.segment(name), body: body)
-        let envelope = try decode(GroupsEnvelope.self, from: data, operation: "PUT /groups")
+    public func updateGroup(name: String, comment: String, enabled: Bool)
+        async throws -> PiholeGroup
+    {
+        let body = try encodeJSON(
+            GroupUpdateRequest(comment: comment, enabled: enabled))
+        let data = try await perform(
+            "PUT", "/groups/" + Escape.segment(name), body: body)
+        let envelope = try decode(
+            GroupsEnvelope.self, from: data, operation: "PUT /groups")
         return envelope.groups.first ?? PiholeGroup()
     }
 
@@ -327,7 +369,9 @@ extension PiholeClient {
     /// `GET /api/clients`: every configured client.
     public func clients() async throws -> [ClientEntry] {
         let data = try await perform("GET", "/clients")
-        return try decode(ClientsEnvelope.self, from: data, operation: "GET /clients").clients
+        return try decode(
+            ClientsEnvelope.self, from: data, operation: "GET /clients"
+        ).clients
     }
 
     /// `POST /api/clients`.
@@ -338,10 +382,12 @@ extension PiholeClient {
         groups: [Int] = [0]
     ) async throws -> ClientEntry {
         let body = try encodeJSON(
-            ClientCreateRequest(client: client, comment: comment, groups: groups)
+            ClientCreateRequest(
+                client: client, comment: comment, groups: groups)
         )
         let data = try await perform("POST", "/clients", body: body)
-        let envelope = try decode(ClientsEnvelope.self, from: data, operation: "POST /clients")
+        let envelope = try decode(
+            ClientsEnvelope.self, from: data, operation: "POST /clients")
         return envelope.clients.first ?? ClientEntry()
     }
 
@@ -352,9 +398,12 @@ extension PiholeClient {
         comment: String,
         groups: [Int]
     ) async throws -> ClientEntry {
-        let body = try encodeJSON(ClientUpdateRequest(comment: comment, groups: groups))
-        let data = try await perform("PUT", "/clients/" + Escape.segment(client), body: body)
-        let envelope = try decode(ClientsEnvelope.self, from: data, operation: "PUT /clients")
+        let body = try encodeJSON(
+            ClientUpdateRequest(comment: comment, groups: groups))
+        let data = try await perform(
+            "PUT", "/clients/" + Escape.segment(client), body: body)
+        let envelope = try decode(
+            ClientsEnvelope.self, from: data, operation: "PUT /clients")
         return envelope.clients.first ?? ClientEntry()
     }
 
@@ -377,13 +426,17 @@ extension PiholeClient {
     // MARK: - Adlists
 
     static func listPath(_ address: String, _ type: ListType) -> String {
-        "/lists/" + Escape.segment(address) + "?type=" + Escape.query(type.rawValue)
+        "/lists/" + Escape.segment(address) + "?type="
+            + Escape.query(type.rawValue)
     }
 
     /// `GET /api/lists?type={type}`.
     public func lists(type: ListType) async throws -> [Adlist] {
-        let data = try await perform("GET", "/lists?type=" + Escape.query(type.rawValue))
-        return try decode(ListsEnvelope.self, from: data, operation: "GET /lists").lists
+        let data = try await perform(
+            "GET", "/lists?type=" + Escape.query(type.rawValue))
+        return try decode(
+            ListsEnvelope.self, from: data, operation: "GET /lists"
+        ).lists
     }
 
     /// `POST /api/lists`. The new list is enabled.
@@ -404,7 +457,8 @@ extension PiholeClient {
             )
         )
         let data = try await perform("POST", "/lists", body: body)
-        let envelope = try decode(ListsEnvelope.self, from: data, operation: "POST /lists")
+        let envelope = try decode(
+            ListsEnvelope.self, from: data, operation: "POST /lists")
         return envelope.lists.first ?? Adlist()
     }
 
@@ -418,10 +472,13 @@ extension PiholeClient {
         enabled: Bool
     ) async throws -> Adlist {
         let body = try encodeJSON(
-            ListUpdateRequest(type: type, comment: comment, groups: groups, enabled: enabled)
+            ListUpdateRequest(
+                type: type, comment: comment, groups: groups, enabled: enabled)
         )
-        let data = try await perform("PUT", PiholeClient.listPath(address, type), body: body)
-        let envelope = try decode(ListsEnvelope.self, from: data, operation: "PUT /lists")
+        let data = try await perform(
+            "PUT", PiholeClient.listPath(address, type), body: body)
+        let envelope = try decode(
+            ListsEnvelope.self, from: data, operation: "PUT /lists")
         return envelope.lists.first ?? Adlist()
     }
 
@@ -438,7 +495,9 @@ extension PiholeClient {
     public func config(detailed: Bool) async throws -> JSONValue {
         let path = "/config?detailed=" + (detailed ? "true" : "false")
         let data = try await perform("GET", path)
-        return try decode(ConfigEnvelope.self, from: data, operation: "GET /config").config
+        return try decode(
+            ConfigEnvelope.self, from: data, operation: "GET /config"
+        ).config
     }
 
     /// `GET /api/config/{element}`: a single subtree addressed by a dotted
@@ -447,12 +506,16 @@ extension PiholeClient {
     public func configElement(_ element: String) async throws -> JSONValue {
         let path = "/config/" + Escape.element(element)
         let data = try await perform("GET", path)
-        return try decode(ConfigEnvelope.self, from: data, operation: "GET " + path).config
+        return try decode(
+            ConfigEnvelope.self, from: data, operation: "GET " + path
+        ).config
     }
 
     /// `PATCH /api/config`. The patch is sent under the `config` key. With
     /// `restart`, FTL restarts affected subsystems to apply it immediately.
-    public func patchConfig(_ patch: JSONValue, restart: Bool = false) async throws {
+    public func patchConfig(_ patch: JSONValue, restart: Bool = false)
+        async throws
+    {
         let path = "/config?restart=" + (restart ? "true" : "false")
         let body = try encodeJSON(ConfigPatchRequest(config: patch))
         _ = try await perform("PATCH", path, body: body)
@@ -461,14 +524,16 @@ extension PiholeClient {
     /// `PUT /api/config/{element}/{value}`: appends `value` to an array-valued
     /// config element.
     public func addConfigItem(element: String, value: String) async throws {
-        let path = "/config/" + Escape.element(element) + "/" + Escape.segment(value)
+        let path =
+            "/config/" + Escape.element(element) + "/" + Escape.segment(value)
         _ = try await perform("PUT", path)
     }
 
     /// `DELETE /api/config/{element}/{value}`: removes `value` from an
     /// array-valued config element.
     public func deleteConfigItem(element: String, value: String) async throws {
-        let path = "/config/" + Escape.element(element) + "/" + Escape.segment(value)
+        let path =
+            "/config/" + Escape.element(element) + "/" + Escape.segment(value)
         _ = try await perform("DELETE", path)
     }
 
@@ -486,7 +551,9 @@ extension PiholeClient {
 
     /// The `dns.hosts` config element, parsed into host records.
     public func hostRecords() async throws -> [HostRecord] {
-        try await stringArrayElement("dns.hosts").map { HostRecord(configValue: $0) }
+        try await stringArrayElement("dns.hosts").map {
+            HostRecord(configValue: $0)
+        }
     }
 
     /// `PUT /api/config/dns/hosts/{IP domain}`.
@@ -500,27 +567,34 @@ extension PiholeClient {
     /// `DELETE /api/config/dns/hosts/{IP domain}`, sending the record's
     /// stored string unchanged.
     public func deleteHostRecord(_ record: HostRecord) async throws {
-        try await deleteConfigItem(element: "dns.hosts", value: record.configValue)
+        try await deleteConfigItem(
+            element: "dns.hosts", value: record.configValue)
     }
 
     /// The `dns.cnameRecords` config element, parsed into CNAME records.
     public func cnameRecords() async throws -> [CNAMERecord] {
-        try await stringArrayElement("dns.cnameRecords").map { CNAMERecord(configValue: $0) }
+        try await stringArrayElement("dns.cnameRecords").map {
+            CNAMERecord(configValue: $0)
+        }
     }
 
     /// `PUT /api/config/dns/cnameRecords/{value}`. A non-positive ttl is
     /// omitted.
-    public func addCNAMERecord(domain: String, target: String, ttl: Int = 0) async throws {
+    public func addCNAMERecord(domain: String, target: String, ttl: Int = 0)
+        async throws
+    {
         try await addConfigItem(
             element: "dns.cnameRecords",
-            value: CNAMERecord(domain: domain, target: target, ttl: ttl).configValue
+            value: CNAMERecord(domain: domain, target: target, ttl: ttl)
+                .configValue
         )
     }
 
     /// `DELETE /api/config/dns/cnameRecords/{value}`, sending the record's
     /// stored string unchanged.
     public func deleteCNAMERecord(_ record: CNAMERecord) async throws {
-        try await deleteConfigItem(element: "dns.cnameRecords", value: record.configValue)
+        try await deleteConfigItem(
+            element: "dns.cnameRecords", value: record.configValue)
     }
 
     // MARK: - Info
@@ -531,7 +605,8 @@ extension PiholeClient {
     public func info(_ section: String) async throws -> JSONValue {
         let path = "/info/" + Escape.segment(section)
         let data = try await perform("GET", path)
-        let raw = try decode(JSONValue.self, from: data, operation: "GET " + path)
+        let raw = try decode(
+            JSONValue.self, from: data, operation: "GET " + path)
         if let inner = raw[section], inner.objectValue != nil {
             return inner
         }
@@ -580,21 +655,24 @@ extension PiholeClient {
             path += "?nextID=\(nextID)"
         }
         let data = try await perform("GET", path)
-        return try decode(DNSLogPage.self, from: data, operation: "GET /info/logs/dns")
+        return try decode(
+            DNSLogPage.self, from: data, operation: "GET /info/logs/dns")
     }
 
     /// `GET /api/info/system`, reduced to the fields the dashboard's health
     /// strip renders.
     public func system() async throws -> SystemInfo {
         let data = try await perform("GET", "/info/system")
-        return try decode(SystemInfo.self, from: data, operation: "GET /info/system")
+        return try decode(
+            SystemInfo.self, from: data, operation: "GET /info/system")
     }
 
     /// `GET /api/info/sensors`. When the host reports no CPU temperature,
     /// `hasTemp` is false and callers should hide the gauge.
     public func sensors() async throws -> Sensors {
         let data = try await perform("GET", "/info/sensors")
-        return try decode(Sensors.self, from: data, operation: "GET /info/sensors")
+        return try decode(
+            Sensors.self, from: data, operation: "GET /info/sensors")
     }
 
     // MARK: - Network

@@ -17,8 +17,11 @@ struct SettingsView: View {
     @State private var versionTaps = 0
 
     private var appVersion: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
+        let version =
+            Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+            ?? "dev"
+        let build =
+            Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
         return "\(version) (\(build))"
     }
 
@@ -60,8 +63,13 @@ struct SettingsView: View {
             } header: {
                 Text("Connections")
             } footer: {
-                Text("Tap an instance to make it active. Swipe left to edit or delete it.")
-                    .foregroundStyle(theme.subtle)
+                Text(
+                    """
+                    Tap an instance to make it active. Swipe left to edit or \
+                    delete it.
+                    """
+                )
+                .foregroundStyle(theme.subtle)
             }
             .rowStyle()
 
@@ -111,7 +119,9 @@ struct SettingsView: View {
                 }
                 if let url = URL(string: "https://github.com/z19r/tihole") {
                     Link(destination: url) {
-                        Label("tihole on GitHub", systemImage: "arrow.up.right.square")
+                        Label(
+                            "tihole on GitHub",
+                            systemImage: "arrow.up.right.square")
                     }
                 }
             } header: {
@@ -128,7 +138,9 @@ struct SettingsView: View {
                 InstanceForm(existing: item.existing) {
                     editor = nil
                 }
-                .navigationTitle(item.existing == nil ? "Add instance" : "Edit instance")
+                .navigationTitle(
+                    item.existing == nil ? "Add instance" : "Edit instance"
+                )
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -150,7 +162,12 @@ struct SettingsView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: { instance in
-            Text("\(instance.name) and its saved password will be removed from this device.")
+            Text(
+                """
+                \(instance.name) and its saved password will be removed from \
+                this device.
+                """
+            )
         }
     }
 }
@@ -214,7 +231,13 @@ struct ThemePickerView: View {
 
         return HStack(spacing: 12) {
             HStack(spacing: 0) {
-                ForEach(Array([preview.accent, preview.allow, preview.warn, preview.block].enumerated()), id: \.offset) { _, color in
+                ForEach(
+                    Array(
+                        [
+                            preview.accent, preview.allow, preview.warn,
+                            preview.block,
+                        ].enumerated()), id: \.offset
+                ) { _, color in
                     color.frame(width: 12, height: 28)
                 }
             }

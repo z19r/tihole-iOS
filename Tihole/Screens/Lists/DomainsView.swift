@@ -87,7 +87,9 @@ struct DomainsView: View {
 
             Section {
                 if visible.isEmpty {
-                    ListPlaceholder(load: load, loadingText: "Loading domains…", emptyText: "No domains here yet")
+                    ListPlaceholder(
+                        load: load, loadingText: "Loading domains…",
+                        emptyText: "No domains here yet")
                 } else {
                     ForEach(visible) { domain in
                         Button {
@@ -115,7 +117,8 @@ struct DomainsView: View {
                             } label: {
                                 Label(
                                     domain.enabled ? "Disable" : "Enable",
-                                    systemImage: domain.enabled ? "pause.circle" : "play.circle"
+                                    systemImage: domain.enabled
+                                        ? "pause.circle" : "play.circle"
                                 )
                             }
                             .tint(theme.accent)
@@ -135,7 +138,8 @@ struct DomainsView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     let defaults = filter.defaults
-                    editor = DomainEditorItem(original: nil, type: defaults.type, kind: defaults.kind)
+                    editor = DomainEditorItem(
+                        original: nil, type: defaults.type, kind: defaults.kind)
                 } label: {
                     Image(systemName: "plus")
                 }
@@ -247,7 +251,8 @@ private struct DomainRow: View {
                 HStack(spacing: 6) {
                     Badge(
                         text: domain.type,
-                        color: domain.domainType == .allow ? theme.allow : theme.block
+                        color: domain.domainType == .allow
+                            ? theme.allow : theme.block
                     )
                     Badge(text: domain.kind, color: theme.subtle)
                     if !domain.groups.isEmpty {
@@ -317,12 +322,15 @@ private struct DomainForm: View {
             .rowStyle()
 
             Section {
-                TextField(kind == .regex ? "Regular expression" : "Domain", text: $domain)
-                    .font(.body.monospaced())
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .keyboardType(kind == .regex ? .asciiCapable : .URL)
-                    .disabled(isEditing)
+                TextField(
+                    kind == .regex ? "Regular expression" : "Domain",
+                    text: $domain
+                )
+                .font(.body.monospaced())
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(kind == .regex ? .asciiCapable : .URL)
+                .disabled(isEditing)
                 TextField("Comment (optional)", text: $comment)
                 if isEditing {
                     Toggle("Enabled", isOn: $enabled)
@@ -361,7 +369,8 @@ private struct DomainForm: View {
         isSaving = true
         defer { isSaving = false }
         do {
-            let commentText = comment.trimmingCharacters(in: .whitespacesAndNewlines)
+            let commentText = comment.trimmingCharacters(
+                in: .whitespacesAndNewlines)
             if let original = item.original {
                 try await client.updateDomain(
                     type: original.domainType,

@@ -34,7 +34,8 @@ struct QueryLogView: View {
 
     var body: some View {
         List {
-            BannerSection(error: load.error ?? app.connectionProblem, note: note)
+            BannerSection(
+                error: load.error ?? app.connectionProblem, note: note)
 
             Section {
                 if queries.isEmpty {
@@ -48,24 +49,32 @@ struct QueryLogView: View {
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button {
-                                pending = PendingClassification(type: .deny, domain: query.domain)
+                                pending = PendingClassification(
+                                    type: .deny, domain: query.domain)
                             } label: {
                                 Label("Block", systemImage: "hand.raised.fill")
                             }
                             .tint(theme.block)
 
                             Button {
-                                pending = PendingClassification(type: .allow, domain: query.domain)
+                                pending = PendingClassification(
+                                    type: .allow, domain: query.domain)
                             } label: {
-                                Label("Allow", systemImage: "checkmark.shield.fill")
+                                Label(
+                                    "Allow",
+                                    systemImage: "checkmark.shield.fill")
                             }
                             .tint(theme.allow)
                         }
                     }
                 }
             } header: {
-                Text("\(Format.count(shown)) shown · \(Format.count(total)) total")
-                    .foregroundStyle(theme.subtle)
+                Text(
+                    """
+                    \(Format.count(shown)) shown · \(Format.count(total)) total
+                    """
+                )
+                .foregroundStyle(theme.subtle)
             }
             .rowStyle()
         }
@@ -77,7 +86,8 @@ struct QueryLogView: View {
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
         .onSubmit(of: .search) {
-            filterDomain = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            filterDomain = searchText.trimmingCharacters(
+                in: .whitespacesAndNewlines)
         }
         .onChange(of: searchText) { _, value in
             if value.isEmpty {
@@ -91,13 +101,17 @@ struct QueryLogView: View {
                 } label: {
                     Image(systemName: isLive ? "pause.circle" : "play.circle")
                 }
-                .accessibilityLabel(isLive ? "Pause live updates" : "Resume live updates")
+                .accessibilityLabel(
+                    isLive ? "Pause live updates" : "Resume live updates")
             }
         }
         .refreshable {
             await fetch(force: true)
         }
-        .task(id: QueryLogKey(generation: app.generation, domain: filterDomain, live: isLive)) {
+        .task(
+            id: QueryLogKey(
+                generation: app.generation, domain: filterDomain, live: isLive)
+        ) {
             if isLive {
                 await repeatEvery(pollInterval) {
                     await fetch(force: false)
@@ -235,7 +249,8 @@ private struct PendingClassification: Identifiable {
 }
 
 private func clientLabel(_ client: DNSQuery.Client) -> String {
-    client.name.trimmingCharacters(in: .whitespaces).isEmpty ? client.ip : client.name
+    client.name.trimmingCharacters(in: .whitespaces).isEmpty
+        ? client.ip : client.name
 }
 
 private struct QueryRow: View {
@@ -264,7 +279,8 @@ private struct QueryRow: View {
                     .foregroundStyle(theme.subtle)
                 Badge(
                     text: query.status.isEmpty ? "-" : query.status,
-                    color: tone == .neutral ? theme.subtle : theme.color(for: tone)
+                    color: tone == .neutral
+                        ? theme.subtle : theme.color(for: tone)
                 )
             }
         }
@@ -289,14 +305,22 @@ private struct QueryDetailSheet: View {
         NavigationStack {
             List {
                 Section {
-                    DetailRow(label: "Domain", value: query.domain, valueColor: toneColor, monospaced: true)
-                    DetailRow(label: "CNAME", value: Format.orDash(query.cname), monospaced: true)
+                    DetailRow(
+                        label: "Domain", value: query.domain,
+                        valueColor: toneColor, monospaced: true)
+                    DetailRow(
+                        label: "CNAME", value: Format.orDash(query.cname),
+                        monospaced: true)
                     DetailRow(label: "Client", value: clientDetail)
                     DetailRow(label: "Type", value: Format.orDash(query.type))
-                    DetailRow(label: "Status", value: Format.orDash(query.status), valueColor: toneColor)
+                    DetailRow(
+                        label: "Status", value: Format.orDash(query.status),
+                        valueColor: toneColor)
                     DetailRow(label: "Reply", value: replyDetail)
-                    DetailRow(label: "Upstream", value: Format.orDash(query.upstream))
-                    DetailRow(label: "DNSSEC", value: Format.orDash(query.dnssec))
+                    DetailRow(
+                        label: "Upstream", value: Format.orDash(query.upstream))
+                    DetailRow(
+                        label: "DNSSEC", value: Format.orDash(query.dnssec))
                     DetailRow(label: "Time", value: Format.clock(query.time))
                 }
                 .rowStyle()
@@ -305,14 +329,19 @@ private struct QueryDetailSheet: View {
                     Button {
                         confirming = .allow
                     } label: {
-                        Label("Allow this domain", systemImage: "checkmark.shield.fill")
-                            .foregroundStyle(theme.allow)
+                        Label(
+                            "Allow this domain",
+                            systemImage: "checkmark.shield.fill"
+                        )
+                        .foregroundStyle(theme.allow)
                     }
                     Button {
                         confirming = .deny
                     } label: {
-                        Label("Block this domain", systemImage: "hand.raised.fill")
-                            .foregroundStyle(theme.block)
+                        Label(
+                            "Block this domain", systemImage: "hand.raised.fill"
+                        )
+                        .foregroundStyle(theme.block)
                     }
                 }
                 .rowStyle()
@@ -328,7 +357,8 @@ private struct QueryDetailSheet: View {
                 }
             }
             .confirmationDialog(
-                confirming == .deny ? "Block \(query.domain)?" : "Allow \(query.domain)?",
+                confirming == .deny
+                    ? "Block \(query.domain)?" : "Allow \(query.domain)?",
                 isPresented: confirmingBinding,
                 titleVisibility: .visible,
                 presenting: confirming
@@ -362,6 +392,8 @@ private struct QueryDetailSheet: View {
     }
 
     private var replyDetail: String {
-        String(format: "%@ (%.1f ms)", Format.orDash(query.reply.type), query.reply.time * 1000)
+        String(
+            format: "%@ (%.1f ms)", Format.orDash(query.reply.type),
+            query.reply.time * 1000)
     }
 }

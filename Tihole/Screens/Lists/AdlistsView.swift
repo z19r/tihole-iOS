@@ -45,11 +45,14 @@ struct AdlistsView: View {
 
             Section {
                 if visible.isEmpty {
-                    ListPlaceholder(load: load, loadingText: "Loading lists…", emptyText: "No lists of this type")
+                    ListPlaceholder(
+                        load: load, loadingText: "Loading lists…",
+                        emptyText: "No lists of this type")
                 } else {
                     ForEach(visible) { list in
                         Button {
-                            editor = AdlistEditorItem(original: list, type: list.listType)
+                            editor = AdlistEditorItem(
+                                original: list, type: list.listType)
                         } label: {
                             AdlistRow(list: list)
                         }
@@ -69,7 +72,8 @@ struct AdlistsView: View {
                             } label: {
                                 Label(
                                     list.enabled ? "Disable" : "Enable",
-                                    systemImage: list.enabled ? "pause.circle" : "play.circle"
+                                    systemImage: list.enabled
+                                        ? "pause.circle" : "play.circle"
                                 )
                             }
                             .tint(theme.accent)
@@ -86,7 +90,9 @@ struct AdlistsView: View {
                 Button {
                     confirmingGravity = true
                 } label: {
-                    Label("Update gravity", systemImage: "arrow.triangle.2.circlepath")
+                    Label(
+                        "Update gravity",
+                        systemImage: "arrow.triangle.2.circlepath")
                 }
                 .disabled(app.client == nil)
             }
@@ -200,7 +206,8 @@ struct AdlistsView: View {
             return
         }
         do {
-            try await client.deleteList(address: list.address, type: list.listType)
+            try await client.deleteList(
+                address: list.address, type: list.listType)
             await reload()
         } catch {
             load.fail(error)
@@ -233,7 +240,8 @@ private struct AdlistRow: View {
                 HStack(spacing: 6) {
                     Badge(
                         text: ListStatus.label(list.status),
-                        color: statusTone == .neutral ? theme.subtle : theme.color(for: statusTone)
+                        color: statusTone == .neutral
+                            ? theme.subtle : theme.color(for: statusTone)
                     )
                     Text("\(Format.count(list.number)) domains")
                         .font(.caption2.monospacedDigit())
@@ -297,12 +305,15 @@ private struct AdlistForm: View {
             .rowStyle()
 
             Section {
-                TextField("https://example.com/hosts.txt", text: $address, axis: .vertical)
-                    .font(.footnote.monospaced())
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .keyboardType(.URL)
-                    .disabled(isEditing)
+                TextField(
+                    "https://example.com/hosts.txt", text: $address,
+                    axis: .vertical
+                )
+                .font(.footnote.monospaced())
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+                .disabled(isEditing)
                 TextField("Comment (optional)", text: $comment)
                 if isEditing {
                     Toggle("Enabled", isOn: $enabled)
@@ -336,7 +347,8 @@ private struct AdlistForm: View {
         isSaving = true
         defer { isSaving = false }
         do {
-            let commentText = comment.trimmingCharacters(in: .whitespacesAndNewlines)
+            let commentText = comment.trimmingCharacters(
+                in: .whitespacesAndNewlines)
             if let original = item.original {
                 try await client.updateList(
                     address: original.address,
@@ -391,11 +403,14 @@ private struct GravitySheet: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 2) {
-                            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                            ForEach(Array(lines.enumerated()), id: \.offset) {
+                                _, line in
                                 Text(line)
                                     .font(.caption.monospaced())
                                     .foregroundStyle(theme.text)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .frame(
+                                        maxWidth: .infinity, alignment: .leading
+                                    )
                                     .textSelection(.enabled)
                             }
                             Color.clear
@@ -439,8 +454,10 @@ private struct GravitySheet: View {
                     .foregroundStyle(theme.subtle)
             }
         case .done:
-            Label("Gravity update complete", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(theme.allow)
+            Label(
+                "Gravity update complete", systemImage: "checkmark.circle.fill"
+            )
+            .foregroundStyle(theme.allow)
         case .failed(let message):
             ErrorBanner(message: "Gravity failed: \(message)")
         }

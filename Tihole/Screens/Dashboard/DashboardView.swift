@@ -5,12 +5,26 @@ import TiholeCore
 
 /// Runs `operation` and returns its outcome as a value, so several fetches
 /// can run side by side and each fail on its own.
-func capture<T>(_ operation: @Sendable () async throws -> T) async -> Result<T, Error> {
+func capture<T>(_ operation: @Sendable () async throws -> T) async -> Result<
+    T, Error
+> {
     do {
         return .success(try await operation())
     } catch {
         return .failure(error)
     }
+}
+
+/// Like `capture`, but skipped when `run` is false. A skipped fetch reports
+/// cancellation, which the dashboard treats as "keep the last value".
+func capture<T>(
+    if run: Bool,
+    _ operation: @Sendable () async throws -> T
+) async -> Result<T, Error> {
+    guard run else {
+        return .failure(CancellationError())
+    }
+    return await capture(operation)
 }
 
 /// Everything the dashboard shows, plus a per-panel error so one failed
@@ -64,16 +78,22 @@ struct DashboardView: View {
     @State private var hotLimitPrompted = false
     @State private var showingHotLimitPrompt = false
     @State private var actionError: String?
+    @State private var slowFetchedAt = Date.distantPast
 
     /// Rows shown in each top-N panel.
     private let topCount = 8
     /// Seconds between refreshes while the dashboard is on screen.
     private let pollInterval = 3.0
+    /// Seconds between refreshes of history, sensors and messages. History
+    /// comes in 10-minute buckets and the other two rarely change.
+    private let slowInterval = 30.0
     /// Pi-hole's stock hot-temperature threshold, and the one offered instead.
     private let hotLimitDefault = 60.0
     private let hotLimitSuggested = 85.0
 
-    private let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
+    private let columns = [
+        GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10),
+    ]
 
     var body: some View {
         ScrollView {
@@ -95,11 +115,20 @@ struct DashboardView: View {
                     tiles
                     health
                     historyChart
-                    breakdown("Query Types", items: typeItems, error: data.typesError)
-                    breakdown("Upstreams", items: upstreamItems, error: data.upstreamsError)
-                    topList("Top Domains", items: domainItems(data.topDomains), error: data.topDomainsError, color: theme.accent)
-                    topList("Top Blocked", items: domainItems(data.topBlocked), error: data.topBlockedError, color: theme.block)
-                    topList("Top Clients", items: clientItems, error: data.topClientsError, color: theme.accent)
+                    breakdown(
+                        "Query Types", items: typeItems, error: data.typesError)
+                    breakdown(
+                        "Upstreams", items: upstreamItems,
+                        error: data.upstreamsError)
+                    topList(
+                        "Top Domains", items: domainItems(data.topDomains),
+                        error: data.topDomainsError, color: theme.accent)
+                    topList(
+                        "Top Blocked", items: domainItems(data.topBlocked),
+                        error: data.topBlockedError, color: theme.block)
+                    topList(
+                        "Top Clients", items: clientItems,
+                        error: data.topClientsError, color: theme.accent)
                 }
             }
             .padding(12)
@@ -109,17 +138,21 @@ struct DashboardView: View {
         .navigationBarTitleDisplayMode(.inline)
         .chrome()
         .refreshable {
-            await refresh()
+            await refresh(force: true)
         }
         .task(id: app.generation) {
             data = DashboardData()
+            slowFetchedAt = .distantPast
             hotLimitPrompted = false
             actionError = nil
             await repeatEvery(pollInterval) {
                 await refresh()
             }
         }
-        .alert("Raise hot-temperature threshold?", isPresented: $showingHotLimitPrompt) {
+        .alert(
+            "Raise hot-temperature threshold?",
+            isPresented: $showingHotLimitPrompt
+        ) {
             Button("Raise to 85°C") {
                 Task {
                     await raiseHotLimit()
@@ -127,7 +160,15 @@ struct DashboardView: View {
             }
             Button("Keep 60°C", role: .cancel) {}
         } message: {
-            Text("Pi-hole's hot-temperature threshold is 60°C, but most single-board computers idle at 45 to 60°C and reach 60 to 70°C under normal load, so 60°C trips false \"hot\" warnings on the health gauge. 85°C is closer to where these CPUs actually throttle.")
+            Text(
+                """
+                Pi-hole's hot-temperature threshold is 60°C, but most \
+                single-board computers idle at 45 to 60°C and reach 60 to 70°C \
+                under normal load, so 60°C trips false \"hot\" warnings on the \
+                health gauge. 85°C is closer to where these CPUs actually \
+                throttle.
+                """
+            )
         }
     }
 
@@ -139,10 +180,17 @@ struct DashboardView: View {
                 ErrorBanner(message: "Summary unavailable: \(error)")
             }
             LazyVGrid(columns: columns, spacing: 10) {
-                statTile("Total Queries", value: Format.count(data.summary.queries.total))
+                statTile(
+                    "Total Queries",
+                    value: Format.count(data.summary.queries.total))
                 blockedTile
-                statTile("Active Clients", value: Format.count(data.summary.clients.active))
-                statTile("Gravity Domains", value: Format.count(data.summary.gravity.domainsBeingBlocked))
+                statTile(
+                    "Active Clients",
+                    value: Format.count(data.summary.clients.active))
+                statTile(
+                    "Gravity Domains",
+                    value: Format.count(
+                        data.summary.gravity.domainsBeingBlocked))
             }
         }
     }
@@ -177,8 +225,10 @@ struct DashboardView: View {
             }
             .lineLimit(1)
             .minimumScaleFactor(0.6)
-            ProgressView(value: clamp(data.summary.queries.percentBlocked / 100))
-                .tint(theme.accent)
+            ProgressView(
+                value: clamp(data.summary.queries.percentBlocked / 100)
+            )
+            .tint(theme.accent)
         }
         .accessibilityElement(children: .combine)
     }
@@ -209,7 +259,9 @@ struct DashboardView: View {
         }
     }
 
-    private func gaugeTile(_ label: String, value: String, fraction: Double) -> some View {
+    private func gaugeTile(_ label: String, value: String, fraction: Double)
+        -> some View
+    {
         let clamped = clamp(fraction)
         return Card {
             Text(label)
@@ -230,7 +282,9 @@ struct DashboardView: View {
     private var temperatureTile: some View {
         if data.sensors.hasTemp {
             let unit = data.sensors.unit.isEmpty ? "C" : data.sensors.unit
-            let fraction = data.sensors.hotLimit > 0 ? data.sensors.cpuTemp / data.sensors.hotLimit : 0
+            let fraction =
+                data.sensors.hotLimit > 0
+                ? data.sensors.cpuTemp / data.sensors.hotLimit : 0
             gaugeTile(
                 "Temp",
                 value: String(format: "%.0f°%@", data.sensors.cpuTemp, unit),
@@ -260,11 +314,16 @@ struct DashboardView: View {
             Text(Format.percent(data.system.load1Percent))
                 .font(.subheadline.weight(.semibold).monospacedDigit())
                 .foregroundStyle(theme.text)
-            Text("\(data.system.procs) procs · \(Format.uptime(seconds: data.system.uptime))")
-                .font(.caption2)
-                .foregroundStyle(theme.subtle)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            Text(
+                """
+                \(data.system.procs) procs · \
+                \(Format.uptime(seconds: data.system.uptime))
+                """
+            )
+            .font(.caption2)
+            .foregroundStyle(theme.subtle)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
         }
         .accessibilityElement(children: .combine)
     }
@@ -290,9 +349,12 @@ struct DashboardView: View {
                     .font(.caption)
                     .foregroundStyle(theme.subtle)
             } else {
-                Label(Format.issues(data.messages.count), systemImage: "exclamationmark.triangle.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(theme.warn)
+                Label(
+                    Format.issues(data.messages.count),
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(theme.warn)
                 Text(data.messages[0].plain)
                     .font(.caption)
                     .foregroundStyle(theme.block)
@@ -308,10 +370,15 @@ struct DashboardView: View {
         var points: [HistorySeriesPoint] = []
         points.reserveCapacity(data.history.history.count * 2)
         for bucket in data.history.history {
-            let date = Date(timeIntervalSince1970: TimeInterval(bucket.timestamp))
+            let date = Date(
+                timeIntervalSince1970: TimeInterval(bucket.timestamp))
             let permitted = max(0, bucket.total - bucket.blocked)
-            points.append(HistorySeriesPoint(date: date, kind: "Permitted", count: permitted))
-            points.append(HistorySeriesPoint(date: date, kind: "Blocked", count: bucket.blocked))
+            points.append(
+                HistorySeriesPoint(
+                    date: date, kind: "Permitted", count: permitted))
+            points.append(
+                HistorySeriesPoint(
+                    date: date, kind: "Blocked", count: bucket.blocked))
         }
         return points
     }
@@ -358,13 +425,15 @@ struct DashboardView: View {
             .map { LabeledCount(label: $0.key, count: $0.value) }
             .filter { $0.count > 0 }
             .sorted { lhs, rhs in
-                lhs.count != rhs.count ? lhs.count > rhs.count : lhs.label < rhs.label
+                lhs.count != rhs.count
+                    ? lhs.count > rhs.count : lhs.label < rhs.label
             }
     }
 
     private var upstreamItems: [LabeledCount] {
         data.upstreams.upstreams.map {
-            LabeledCount(label: $0.name.isEmpty ? $0.ip : $0.name, count: $0.count)
+            LabeledCount(
+                label: $0.name.isEmpty ? $0.ip : $0.name, count: $0.count)
         }
     }
 
@@ -374,15 +443,20 @@ struct DashboardView: View {
 
     private var clientItems: [LabeledCount] {
         data.topClients.clients.map {
-            LabeledCount(label: $0.name.isEmpty ? $0.ip : $0.name, count: $0.count)
+            LabeledCount(
+                label: $0.name.isEmpty ? $0.ip : $0.name, count: $0.count)
         }
     }
 
-    private func breakdown(_ title: String, items: [LabeledCount], error: String?) -> some View {
+    private func breakdown(
+        _ title: String, items: [LabeledCount], error: String?
+    ) -> some View {
         topList(title, items: items, error: error, color: theme.accent)
     }
 
-    private func topList(_ title: String, items: [LabeledCount], error: String?, color: Color) -> some View {
+    private func topList(
+        _ title: String, items: [LabeledCount], error: String?, color: Color
+    ) -> some View {
         let largest = max(items.map(\.count).max() ?? 0, 1)
         return Card(title) {
             if let error {
@@ -416,23 +490,31 @@ struct DashboardView: View {
     // MARK: - Loading
 
     @MainActor
-    private func refresh() async {
+    private func refresh(force: Bool = false) async {
         guard let client = app.client, app.isForeground else {
             return
         }
         let startedAt = app.generation
         let count = topCount
+        let slow =
+            force || Date().timeIntervalSince(slowFetchedAt) >= slowInterval
 
         async let summary = capture { try await client.summary() }
-        async let history = capture { try await client.history() }
+        async let history = capture(if: slow) { try await client.history() }
         async let types = capture { try await client.queryTypes() }
         async let upstreams = capture { try await client.upstreams() }
-        async let topDomains = capture { try await client.topDomains(blocked: false, count: count) }
-        async let topBlocked = capture { try await client.topDomains(blocked: true, count: count) }
-        async let topClients = capture { try await client.topClients(blocked: false, count: count) }
+        async let topDomains = capture {
+            try await client.topDomains(blocked: false, count: count)
+        }
+        async let topBlocked = capture {
+            try await client.topDomains(blocked: true, count: count)
+        }
+        async let topClients = capture {
+            try await client.topClients(blocked: false, count: count)
+        }
         async let system = capture { try await client.system() }
-        async let sensors = capture { try await client.sensors() }
-        async let messages = capture { try await client.messages() }
+        async let sensors = capture(if: slow) { try await client.sensors() }
+        async let messages = capture(if: slow) { try await client.messages() }
 
         let summaryResult = await summary
         let historyResult = await history
@@ -454,10 +536,17 @@ struct DashboardView: View {
         merge(summaryResult, into: &next.summary, error: &next.summaryError)
         merge(historyResult, into: &next.history, error: &next.historyError)
         merge(typesResult, into: &next.types, error: &next.typesError)
-        merge(upstreamsResult, into: &next.upstreams, error: &next.upstreamsError)
-        merge(topDomainsResult, into: &next.topDomains, error: &next.topDomainsError)
-        merge(topBlockedResult, into: &next.topBlocked, error: &next.topBlockedError)
-        merge(topClientsResult, into: &next.topClients, error: &next.topClientsError)
+        merge(
+            upstreamsResult, into: &next.upstreams, error: &next.upstreamsError)
+        merge(
+            topDomainsResult, into: &next.topDomains,
+            error: &next.topDomainsError)
+        merge(
+            topBlockedResult, into: &next.topBlocked,
+            error: &next.topBlockedError)
+        merge(
+            topClientsResult, into: &next.topClients,
+            error: &next.topClientsError)
         merge(systemResult, into: &next.system, error: &next.systemError)
         merge(messagesResult, into: &next.messages, error: &next.messagesError)
         // A host without sensors is normal, so a sensors failure is not shown.
@@ -466,11 +555,16 @@ struct DashboardView: View {
         }
         next.loaded = true
         data = next
+        if slow {
+            slowFetchedAt = Date()
+        }
 
         offerHotLimitIfNeeded()
     }
 
-    private func merge<T>(_ result: Result<T, Error>, into value: inout T, error: inout String?) {
+    private func merge<T>(
+        _ result: Result<T, Error>, into value: inout T, error: inout String?
+    ) {
         switch result {
         case .success(let fresh):
             value = fresh
@@ -488,9 +582,9 @@ struct DashboardView: View {
     /// threshold, which reads as "hot" on boards that idle near it.
     private func offerHotLimitIfNeeded() {
         guard !hotLimitPrompted,
-              data.sensors.hasTemp,
-              data.sensors.unit == "C",
-              data.sensors.hotLimit == hotLimitDefault
+            data.sensors.hasTemp,
+            data.sensors.unit == "C",
+            data.sensors.hotLimit == hotLimitDefault
         else {
             return
         }
@@ -505,11 +599,12 @@ struct DashboardView: View {
         }
         do {
             try await client.patchConfig(
-                ConfigTree.patch(path: "misc.temp.limit", value: .number(hotLimitSuggested)),
+                ConfigTree.patch(
+                    path: "misc.temp.limit", value: .number(hotLimitSuggested)),
                 restart: false
             )
             actionError = nil
-            await refresh()
+            await refresh(force: true)
         } catch {
             if !ErrorText.isCancellation(error) {
                 actionError = ErrorText.describe(error)

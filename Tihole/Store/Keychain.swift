@@ -11,7 +11,9 @@ enum Keychain {
         let status: OSStatus
 
         var errorDescription: String? {
-            let detail = SecCopyErrorMessageString(status, nil) as String? ?? "status \(status)"
+            let detail =
+                SecCopyErrorMessageString(status, nil) as String?
+                ?? "status \(status)"
             return "Could not save the password to the Keychain: \(detail)"
         }
     }
@@ -24,16 +26,23 @@ enum Keychain {
         ]
     }
 
-    /// Stores (or replaces) the password for an instance.
+    /// Stores (or replaces) the password for an instance. Updates in place,
+    /// so a failed save never loses the password already stored.
     static func setPassword(_ password: String, for id: UUID) throws {
         let query = baseQuery(for: id)
-        SecItemDelete(query as CFDictionary)
+        let data = Data(password.utf8)
 
-        var attributes = query
-        attributes[kSecValueData as String] = Data(password.utf8)
-        attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-
-        let status = SecItemAdd(attributes as CFDictionary, nil)
+        var status = SecItemUpdate(
+            query as CFDictionary,
+            [kSecValueData as String: data] as CFDictionary
+        )
+        if status == errSecItemNotFound {
+            var attributes = query
+            attributes[kSecValueData as String] = data
+            attributes[kSecAttrAccessible as String] =
+                kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            status = SecItemAdd(attributes as CFDictionary, nil)
+        }
         guard status == errSecSuccess else {
             throw Failure(status: status)
         }
