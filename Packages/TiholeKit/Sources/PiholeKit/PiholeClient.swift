@@ -110,8 +110,11 @@ public actor PiholeClient {
     /// "/" and is relative to the /api root) and returns the 2xx body. On a
     /// 401 it logs in once and retries. Non-2xx responses throw
     /// `PiholeError.api`.
-    func perform(_ method: String, _ path: String, body: Data? = nil) async throws -> Data {
-        try await send(method, path, body: body, allowRetry: true, sendAuth: true)
+    func perform(_ method: String, _ path: String, body: Data? = nil)
+        async throws -> Data
+    {
+        try await send(
+            method, path, body: body, allowRetry: true, sendAuth: true)
     }
 
     /// Issues a single request. With `allowRetry`, a 401 re-authenticates
@@ -129,7 +132,8 @@ public actor PiholeClient {
         var request = try makeRequest(method, path)
         if let body {
             request.httpBody = body
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue(
+                "application/json", forHTTPHeaderField: "Content-Type")
         }
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
@@ -168,12 +172,15 @@ public actor PiholeClient {
         }
 
         guard (200..<300).contains(http.statusCode) else {
-            throw PiholeError.api(decodeAPIError(status: http.statusCode, data: data))
+            throw PiholeError.api(
+                decodeAPIError(status: http.statusCode, data: data))
         }
         return data
     }
 
-    private func makeRequest(_ method: String, _ path: String) throws -> URLRequest {
+    private func makeRequest(_ method: String, _ path: String) throws
+        -> URLRequest
+    {
         guard let url = URL(string: apiURL + path), url.host != nil else {
             throw PiholeError.invalidURL(apiURL + path)
         }
@@ -225,18 +232,22 @@ public actor PiholeClient {
 
         let data: Data
         do {
-            data = try await send("POST", "/auth", body: body, allowRetry: false, sendAuth: false)
+            data = try await send(
+                "POST", "/auth", body: body, allowRetry: false, sendAuth: false)
         } catch let error as PiholeError {
             if case .api(let apiError) = error {
-                throw PiholeError.auth(status: apiError.status, message: apiError.message)
+                throw PiholeError.auth(
+                    status: apiError.status, message: apiError.message)
             }
             throw error
         }
 
-        let envelope = try decode(SessionEnvelope.self, from: data, operation: "POST /auth")
+        let envelope = try decode(
+            SessionEnvelope.self, from: data, operation: "POST /auth")
         let session = envelope.session
         guard session.valid, !session.sid.isEmpty else {
-            let message = session.message.isEmpty
+            let message =
+                session.message.isEmpty
                 ? "login did not return a valid session"
                 : session.message
             throw PiholeError.auth(status: 401, message: message)
@@ -263,7 +274,8 @@ public actor PiholeClient {
     public func logout() async throws {
         guard let current = sid, !current.isEmpty else { return }
         defer { sid = nil }
-        _ = try await send("DELETE", "/auth", body: nil, allowRetry: false, sendAuth: true)
+        _ = try await send(
+            "DELETE", "/auth", body: nil, allowRetry: false, sendAuth: true)
     }
 
     // MARK: - Gravity stream
@@ -280,7 +292,9 @@ public actor PiholeClient {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    try await self.streamGravity(timeout: timeout, allowRetry: true) { line in
+                    try await self.streamGravity(
+                        timeout: timeout, allowRetry: true
+                    ) { line in
                         continuation.yield(line)
                     }
                     continuation.finish()
@@ -327,7 +341,8 @@ public actor PiholeClient {
 
         if http.statusCode == 401 && allowRetry {
             try await reauth(staleSID: sentSID)
-            try await streamGravity(timeout: timeout, allowRetry: false, onLine: onLine)
+            try await streamGravity(
+                timeout: timeout, allowRetry: false, onLine: onLine)
             return
         }
 
@@ -338,7 +353,8 @@ public actor PiholeClient {
                     data.append(byte)
                     if data.count >= 64 * 1024 { break }
                 }
-                throw PiholeError.api(decodeAPIError(status: http.statusCode, data: data))
+                throw PiholeError.api(
+                    decodeAPIError(status: http.statusCode, data: data))
             }
 
             for try await line in bytes.lines {
@@ -388,13 +404,16 @@ final class InsecureTrustDelegate: NSObject, URLSessionDelegate {
     func urlSession(
         _ session: URLSession,
         didReceive challenge: URLAuthenticationChallenge,
-        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+        completionHandler:
+            @escaping (URLSession.AuthChallengeDisposition, URLCredential?) ->
+            Void
     ) {
         let space = challenge.protectionSpace
-        guard space.authenticationMethod == NSURLAuthenticationMethodServerTrust,
-              let trust = space.serverTrust,
-              let host,
-              space.host.caseInsensitiveCompare(host) == .orderedSame
+        guard
+            space.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+            let trust = space.serverTrust,
+            let host,
+            space.host.caseInsensitiveCompare(host) == .orderedSame
         else {
             completionHandler(.performDefaultHandling, nil)
             return
@@ -412,7 +431,8 @@ enum Escape {
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 
     /// Characters left bare in a path segment: unreserved plus `$&+=:@`.
-    static let segmentAllowed = CharacterSet(charactersIn: alphanumerics + "-_.~$&+=:@")
+    static let segmentAllowed = CharacterSet(
+        charactersIn: alphanumerics + "-_.~$&+=:@")
 
     /// Characters left bare in a query value: unreserved only.
     static let queryAllowed = CharacterSet(charactersIn: alphanumerics + "-_.~")
@@ -421,11 +441,13 @@ enum Escape {
     /// "IP domain" config values carry reserved characters, so "/" and "," and
     /// spaces are all percent-encoded.
     static func segment(_ value: String) -> String {
-        value.addingPercentEncoding(withAllowedCharacters: segmentAllowed) ?? value
+        value.addingPercentEncoding(withAllowedCharacters: segmentAllowed)
+            ?? value
     }
 
     static func query(_ value: String) -> String {
-        value.addingPercentEncoding(withAllowedCharacters: queryAllowed) ?? value
+        value.addingPercentEncoding(withAllowedCharacters: queryAllowed)
+            ?? value
     }
 
     /// Escapes each dotted segment of a config element path ("dns.upstreams")
@@ -442,7 +464,8 @@ enum Escape {
     static func queryString(_ items: [(String, String)]) -> String {
         if items.isEmpty { return "" }
         let sorted = items.sorted { $0.0 < $1.0 }
-        return "?" + sorted
+        return "?"
+            + sorted
             .map { query($0.0) + "=" + query($0.1) }
             .joined(separator: "&")
     }

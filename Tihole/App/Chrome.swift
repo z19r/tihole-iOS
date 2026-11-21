@@ -86,24 +86,34 @@ struct BlockingPill: View {
 
     var body: some View {
         if !state.known {
-            pill("Blocking", icon: "circle.dotted", foreground: theme.subtle, background: theme.border)
+            pill(
+                "Blocking", icon: "circle.dotted", foreground: theme.subtle,
+                background: theme.border)
         } else if state.enabled {
-            pill("On", icon: "shield.fill", foreground: theme.surface, background: theme.allow)
+            pill(
+                "On", icon: "shield.fill", foreground: theme.surface,
+                background: theme.allow)
         } else if state.resumesAt != nil {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 pill(
-                    "Off " + Format.countdown(seconds: state.remainingSeconds(at: context.date)),
+                    "Off "
+                        + Format.countdown(
+                            seconds: state.remainingSeconds(at: context.date)),
                     icon: "exclamationmark.triangle.fill",
                     foreground: theme.surface,
                     background: theme.block
                 )
             }
         } else {
-            pill("Off", icon: "exclamationmark.triangle.fill", foreground: theme.surface, background: theme.block)
+            pill(
+                "Off", icon: "exclamationmark.triangle.fill",
+                foreground: theme.surface, background: theme.block)
         }
     }
 
-    private func pill(_ label: String, icon: String, foreground: Color, background: Color) -> some View {
+    private func pill(
+        _ label: String, icon: String, foreground: Color, background: Color
+    ) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
             Text(label)
@@ -134,11 +144,21 @@ struct BlockingSheet: View {
     }
 
     private let choices = [
-        Choice(id: 0, label: "Enable blocking", icon: "shield.fill", enable: true, seconds: nil),
-        Choice(id: 1, label: "Disable for 5 minutes", icon: "timer", enable: false, seconds: 300),
-        Choice(id: 2, label: "Disable for 10 minutes", icon: "timer", enable: false, seconds: 600),
-        Choice(id: 3, label: "Disable for 15 minutes", icon: "timer", enable: false, seconds: 900),
-        Choice(id: 4, label: "Disable indefinitely", icon: "shield.slash", enable: false, seconds: nil),
+        Choice(
+            id: 0, label: "Enable blocking", icon: "shield.fill", enable: true,
+            seconds: nil),
+        Choice(
+            id: 1, label: "Disable for 5 minutes", icon: "timer", enable: false,
+            seconds: 300),
+        Choice(
+            id: 2, label: "Disable for 10 minutes", icon: "timer",
+            enable: false, seconds: 600),
+        Choice(
+            id: 3, label: "Disable for 15 minutes", icon: "timer",
+            enable: false, seconds: 900),
+        Choice(
+            id: 4, label: "Disable indefinitely", icon: "shield.slash",
+            enable: false, seconds: nil),
     ]
 
     var body: some View {
@@ -159,7 +179,8 @@ struct BlockingSheet: View {
                             }
                         } label: {
                             Label(choice.label, systemImage: choice.icon)
-                                .foregroundStyle(choice.enable ? theme.allow : theme.text)
+                                .foregroundStyle(
+                                    choice.enable ? theme.allow : theme.text)
                         }
                         .disabled(load.isLoading)
                     }
@@ -197,7 +218,8 @@ struct BlockingSheet: View {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 Label(
                     "Blocking is off. Re-enables in "
-                        + Format.countdown(seconds: state.remainingSeconds(at: context.date)),
+                        + Format.countdown(
+                            seconds: state.remainingSeconds(at: context.date)),
                     systemImage: "exclamationmark.triangle.fill"
                 )
                 .font(.headline)
@@ -205,9 +227,11 @@ struct BlockingSheet: View {
                 .monospacedDigit()
             }
         } else {
-            Label("Blocking is off", systemImage: "exclamationmark.triangle.fill")
-                .font(.headline)
-                .foregroundStyle(theme.block)
+            Label(
+                "Blocking is off", systemImage: "exclamationmark.triangle.fill"
+            )
+            .font(.headline)
+            .foregroundStyle(theme.block)
         }
     }
 
@@ -215,7 +239,8 @@ struct BlockingSheet: View {
     private func apply(_ choice: Choice) async {
         load.begin()
         do {
-            try await app.setBlocking(enabled: choice.enable, seconds: choice.seconds)
+            try await app.setBlocking(
+                enabled: choice.enable, seconds: choice.seconds)
             load.succeed()
             dismiss()
         } catch {

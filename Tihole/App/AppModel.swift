@@ -79,10 +79,10 @@ final class AppModel {
 
     init() {
         #if DEBUG
-        // UI tests launch with this flag so every run starts at onboarding.
-        if ProcessInfo.processInfo.arguments.contains("--reset-state") {
-            ConfigStore.reset()
-        }
+            // UI tests launch with this flag so every run starts at onboarding.
+            if ProcessInfo.processInfo.arguments.contains("--reset-state") {
+                ConfigStore.reset()
+            }
         #endif
         config = ConfigStore.load()
         rebuildClient()
@@ -119,7 +119,8 @@ final class AppModel {
         guard partyMode else {
             return
         }
-        partyTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        partyTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true)
+        { [weak self] _ in
             Task { @MainActor in
                 self?.partyDate = Date()
             }
@@ -158,12 +159,22 @@ final class AppModel {
             do {
                 try MockPihole.startDemo()
             } catch {
-                connectionProblem = "The demo Pi-hole could not start: \(error.localizedDescription)"
+                connectionProblem =
+                    """
+                    The demo Pi-hole could not start: \
+                    \(error.localizedDescription)
+                    """
                 return
             }
         }
-        guard let password = Keychain.password(for: instance.id), !password.isEmpty else {
-            connectionProblem = "No password saved for \(instance.name). Edit the instance in Settings."
+        guard let password = Keychain.password(for: instance.id),
+            !password.isEmpty
+        else {
+            connectionProblem =
+                """
+                No password saved for \(instance.name). Edit the instance in \
+                Settings.
+                """
             return
         }
         client = PiholeClient(
@@ -185,7 +196,8 @@ final class AppModel {
         )
 
         var problems = next.validationErrors()
-        let hasStoredPassword = !(Keychain.password(for: instanceID) ?? "").isEmpty
+        let hasStoredPassword = !(Keychain.password(for: instanceID) ?? "")
+            .isEmpty
         if draft.password.isEmpty && !hasStoredPassword {
             problems.append("password is required")
         }
@@ -206,7 +218,9 @@ final class AppModel {
 
     /// Adds and activates an instance backed by the in-app demo server.
     func addDemo() throws {
-        let draft = InstanceDraft(name: "Demo", url: MockPihole.demoURL, password: MockPihole.password)
+        let draft = InstanceDraft(
+            name: "Demo", url: MockPihole.demoURL, password: MockPihole.password
+        )
         try saveInstance(id: nil, draft: draft)
     }
 
@@ -222,7 +236,7 @@ final class AppModel {
 
     func activate(_ id: UUID) {
         guard config.activeInstance?.id != id,
-              config.instances.contains(where: { $0.id == id })
+            config.instances.contains(where: { $0.id == id })
         else {
             return
         }
@@ -233,7 +247,9 @@ final class AppModel {
 
     /// Logs in with the draft's settings without saving anything, so the
     /// form can report a bad address or password before committing.
-    static func testConnection(draft: InstanceDraft, existingID: UUID?) async throws {
+    static func testConnection(draft: InstanceDraft, existingID: UUID?)
+        async throws
+    {
         let url = InstanceConfig.normalizedURL(draft.url)
         if let problem = InstanceConfig.urlProblem(url) {
             throw ConfigProblem(messages: [problem])
@@ -245,7 +261,8 @@ final class AppModel {
         guard !password.isEmpty else {
             throw ConfigProblem(messages: ["password is required"])
         }
-        let probe = PiholeClient(baseURL: url, password: password, verifyTLS: draft.verifyTLS)
+        let probe = PiholeClient(
+            baseURL: url, password: password, verifyTLS: draft.verifyTLS)
         try await probe.login()
         try? await probe.logout()
     }
@@ -259,7 +276,8 @@ final class AppModel {
             return
         }
         let startedAt = generation
-        guard let status = try? await client.blocking(), startedAt == generation else {
+        guard let status = try? await client.blocking(), startedAt == generation
+        else {
             return
         }
         applyBlocking(status)
@@ -279,7 +297,9 @@ final class AppModel {
     /// Turns blocking on, or off for `seconds` (nil means until re-enabled).
     func setBlocking(enabled: Bool, seconds: Double?) async throws {
         guard let client else {
-            throw ConfigProblem(messages: [connectionProblem ?? "No active instance"])
+            throw ConfigProblem(messages: [
+                connectionProblem ?? "No active instance"
+            ])
         }
         try await client.setBlocking(enabled, timer: enabled ? nil : seconds)
         applyBlocking(try await client.blocking())
@@ -297,7 +317,9 @@ final class AppModel {
         }
         let application = UIApplication.shared
         let box = BackgroundTaskBox()
-        box.identifier = application.beginBackgroundTask(withName: "tihole.logout") {
+        box.identifier = application.beginBackgroundTask(
+            withName: "tihole.logout"
+        ) {
             application.endBackgroundTask(box.identifier)
             box.identifier = .invalid
         }

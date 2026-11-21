@@ -80,7 +80,10 @@ public enum ConfigTree {
         return out
     }
 
-    private static func walk(prefix: String, object: [String: JSONValue], into out: inout [ConfigLeaf]) {
+    private static func walk(
+        prefix: String, object: [String: JSONValue],
+        into out: inout [ConfigLeaf]
+    ) {
         for (key, value) in object {
             let path = prefix.isEmpty ? key : prefix + "." + key
             if let child = value.objectValue {
@@ -100,13 +103,16 @@ public enum ConfigTree {
         guard object["value"] != nil else {
             return false
         }
-        for key in ["type", "description", "default", "flags", "modified"] where object[key] != nil {
+        for key in ["type", "description", "default", "flags", "modified"]
+        where object[key] != nil {
             return true
         }
         return false
     }
 
-    private static func detailLeaf(path: String, object: [String: JSONValue]) -> ConfigLeaf {
+    private static func detailLeaf(path: String, object: [String: JSONValue])
+        -> ConfigLeaf
+    {
         ConfigLeaf(
             path: path,
             value: object["value"] ?? .null,
@@ -120,8 +126,11 @@ public enum ConfigTree {
 
     /// Leaves whose path contains `query`, case-insensitively. A blank query
     /// returns everything.
-    public static func filter(_ leaves: [ConfigLeaf], query: String) -> [ConfigLeaf] {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    public static func filter(_ leaves: [ConfigLeaf], query: String)
+        -> [ConfigLeaf]
+    {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
         if needle.isEmpty {
             return leaves
         }
@@ -148,7 +157,8 @@ public enum ConfigTree {
             }
             return String(number)
         case .array(let items):
-            return "[" + items.map { stringify($0) }.joined(separator: ", ") + "]"
+            return "[" + items.map { stringify($0) }.joined(separator: ", ")
+                + "]"
         case .object:
             return "{…}"
         }
@@ -157,7 +167,8 @@ public enum ConfigTree {
     /// The type shown in the detail view: FTL's own label when present,
     /// otherwise one derived from the value.
     public static func typeLabel(_ leaf: ConfigLeaf) -> String {
-        let declared = leaf.dataType.trimmingCharacters(in: .whitespacesAndNewlines)
+        let declared = leaf.dataType.trimmingCharacters(
+            in: .whitespacesAndNewlines)
         if !declared.isEmpty {
             return declared
         }
@@ -214,7 +225,9 @@ public enum ConfigTree {
 
     /// Coerces edited text back to the type of the original value so a
     /// boolean stays a boolean and a number stays a number in the PATCH.
-    public static func parse(original: JSONValue, input: String) throws -> JSONValue {
+    public static func parse(original: JSONValue, input: String) throws
+        -> JSONValue
+    {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         switch original {
         case .bool:
@@ -233,8 +246,8 @@ public enum ConfigTree {
         }
     }
 
-    /// Builds the nested PATCH body for a dotted path:
-    /// "dns.blocking.active" -> `{ "dns": { "blocking": { "active": value } } }`.
+    /// Builds the nested PATCH body for a dotted path: "dns.blocking.active" ->
+    /// `{ "dns": { "blocking": { "active": value } } }`.
     public static func patch(path: String, value: JSONValue) -> JSONValue {
         let parts = path.split(separator: ".").map(String.init)
         var node = value
@@ -267,7 +280,9 @@ public enum InfoRows {
         return out
     }
 
-    private static func collect(prefix: String, value: JSONValue, into out: inout [Row]) {
+    private static func collect(
+        prefix: String, value: JSONValue, into out: inout [Row]
+    ) {
         switch value {
         case .object(let object):
             for (key, child) in object {
@@ -276,9 +291,14 @@ public enum InfoRows {
             }
         case .array(let items):
             let scalars = items.filter { $0.isScalar }
-            if !prefix.isEmpty && !scalars.isEmpty && scalars.count == items.count {
+            if !prefix.isEmpty && !scalars.isEmpty
+                && scalars.count == items.count
+            {
                 out.append(
-                    Row(key: prefix, value: scalars.map { ConfigTree.stringify($0) }.joined(separator: ", "))
+                    Row(
+                        key: prefix,
+                        value: scalars.map { ConfigTree.stringify($0) }.joined(
+                            separator: ", "))
                 )
             }
         case .string, .bool, .number:

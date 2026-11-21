@@ -8,6 +8,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- The dashboard refreshes history, sensors and messages every 30 seconds
+  instead of every 3, which takes load off small Pi-holes. Pull to refresh
+  still fetches everything.
+
+### Fixed
+
+- Changing an instance's password no longer loses the saved one if the
+  Keychain refuses the update.
+
 ## [1.0.1] - 2026-11-19
 
 ### Added

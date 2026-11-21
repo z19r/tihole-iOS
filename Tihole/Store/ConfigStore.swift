@@ -9,14 +9,15 @@ enum ConfigStore {
 
     static func load(from defaults: UserDefaults = .standard) -> AppConfig {
         guard let data = defaults.data(forKey: key),
-              let config = try? JSONDecoder().decode(AppConfig.self, from: data)
+            let config = try? JSONDecoder().decode(AppConfig.self, from: data)
         else {
             return AppConfig()
         }
         return config
     }
 
-    static func save(_ config: AppConfig, to defaults: UserDefaults = .standard) {
+    static func save(_ config: AppConfig, to defaults: UserDefaults = .standard)
+    {
         guard let data = try? JSONEncoder().encode(config) else {
             return
         }

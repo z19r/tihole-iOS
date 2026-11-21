@@ -48,13 +48,21 @@ ui-test: gen
         -destination "platform=iOS Simulator,id=$(scripts/pick_simulator.py)" \
         -resultBundlePath TestResults.xcresult
 
-# Format the Python scripts (80 columns, see ruff.toml)
+# swift-format from the same Swift image CI uses, so output matches exactly
+docker_run := "docker run --rm -u $(id -u):$(id -g) -v $PWD:/src -w /src"
+swift_format := docker_run + " swift:6.2 swift-format"
+swift_dirs := "Tihole TiholeUITests Packages"
+
+# Format the Swift code and Python scripts (80 columns, see .swift-format
+# and ruff.toml)
 fmt:
+    {{ swift_format }} format --in-place --recursive --parallel {{ swift_dirs }}
     uvx ruff format scripts
     uvx ruff check --fix scripts
 
-# Fail if the Python scripts are not formatted or lint-clean
+# Fail if the Swift code or Python scripts are not formatted or lint-clean
 fmt-check:
+    {{ swift_format }} lint --strict --recursive --parallel {{ swift_dirs }}
     uvx ruff format --check scripts
     uvx ruff check scripts
 

@@ -24,7 +24,9 @@ struct ClientsView: View {
 
             Section {
                 if clients.isEmpty {
-                    ListPlaceholder(load: load, loadingText: "Loading clients…", emptyText: "No clients configured")
+                    ListPlaceholder(
+                        load: load, loadingText: "Loading clients…",
+                        emptyText: "No clients configured")
                 } else {
                     ForEach(clients) { client in
                         Button {
@@ -144,9 +146,12 @@ private struct ClientRow: View {
                 }
             }
             Spacer(minLength: 8)
-            Text(client.groups.count == 1 ? "1 group" : "\(client.groups.count) groups")
-                .font(.caption)
-                .foregroundStyle(theme.subtle)
+            Text(
+                client.groups.count == 1
+                    ? "1 group" : "\(client.groups.count) groups"
+            )
+            .font(.caption)
+            .foregroundStyle(theme.subtle)
         }
         .accessibilityElement(children: .combine)
     }
@@ -241,7 +246,8 @@ private struct ClientForm: View {
                 Text("No unconfigured clients seen")
                     .foregroundStyle(theme.subtle)
             } else {
-                ForEach(Array(suggestions.enumerated()), id: \.offset) { _, suggestion in
+                ForEach(Array(suggestions.enumerated()), id: \.offset) {
+                    _, suggestion in
                     Button {
                         client = firstAddress(suggestion.addresses)
                         if comment.isEmpty {
@@ -249,9 +255,12 @@ private struct ClientForm: View {
                         }
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(Format.orDash(firstAddress(suggestion.addresses)))
-                                .font(.callout.monospaced())
-                                .foregroundStyle(theme.text)
+                            Text(
+                                Format.orDash(
+                                    firstAddress(suggestion.addresses))
+                            )
+                            .font(.callout.monospaced())
+                            .foregroundStyle(theme.text)
                             Text(meta(suggestion))
                                 .font(.caption)
                                 .foregroundStyle(theme.subtle)
@@ -304,7 +313,8 @@ private struct ClientForm: View {
         isSaving = true
         defer { isSaving = false }
         do {
-            let commentText = comment.trimmingCharacters(in: .whitespacesAndNewlines)
+            let commentText = comment.trimmingCharacters(
+                in: .whitespacesAndNewlines)
             if let original = item.original {
                 try await api.updateClient(
                     client: original.client,

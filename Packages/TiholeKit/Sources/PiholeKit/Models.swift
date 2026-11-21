@@ -177,7 +177,9 @@ public struct UpstreamServer: Decodable, Sendable, Equatable {
         name = c.lenient(.name, default: "")
         port = c.lenient(.port, default: 0)
         count = c.lenient(.count, default: 0)
-        if let stats = try? c.nestedContainer(keyedBy: StatisticsKeys.self, forKey: .statistics) {
+        if let stats = try? c.nestedContainer(
+            keyedBy: StatisticsKeys.self, forKey: .statistics)
+        {
             responseTime = stats.lenient(.response, default: 0.0)
             variance = stats.lenient(.variance, default: 0.0)
         }
@@ -314,7 +316,10 @@ public struct HistoryPoint: Decodable, Sendable, Equatable {
 
     public init() {}
 
-    public init(timestamp: Int, total: Int, cached: Int = 0, blocked: Int = 0, forwarded: Int = 0) {
+    public init(
+        timestamp: Int, total: Int, cached: Int = 0, blocked: Int = 0,
+        forwarded: Int = 0
+    ) {
         self.timestamp = timestamp
         self.total = total
         self.cached = cached
@@ -410,7 +415,8 @@ public struct DNSQuery: Decodable, Sendable, Equatable, Identifiable {
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case id, time, type, domain, cname, status, client, dnssec, reply, upstream
+        case id, time, type, domain, cname, status, client, dnssec, reply,
+            upstream
         case listID = "list_id"
     }
 
@@ -879,7 +885,8 @@ public struct NetworkDevice: Decodable, Sendable, Equatable, Identifiable {
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case id, hwaddr, interface, firstSeen, lastQuery, numQueries, macVendor, ips
+        case id, hwaddr, interface, firstSeen, lastQuery, numQueries, macVendor,
+            ips
     }
 
     public init(from decoder: Decoder) throws {
@@ -949,7 +956,9 @@ extension SystemInfo: Decodable {
         procs = Int(number("procs"))
         nprocs = Int(number("cpu.nprocs"))
         cpuPercent = system["cpu"]?["%cpu"]?.numberValue ?? 0
-        load1Percent = system["cpu"]?["load"]?["percent"]?.arrayValue?.first?.numberValue ?? 0
+        load1Percent =
+            system["cpu"]?["load"]?["percent"]?.arrayValue?.first?.numberValue
+            ?? 0
         memUsedPercent = system["memory"]?["ram"]?["%used"]?.numberValue ?? 0
         memUsedKiB = Int64(number("memory.ram.used"))
         memTotalKiB = Int64(number("memory.ram.total"))
@@ -972,7 +981,8 @@ public struct Sensors: Sendable, Equatable {
 
     public init() {}
 
-    public init(hasTemp: Bool, cpuTemp: Double, hotLimit: Double, unit: String) {
+    public init(hasTemp: Bool, cpuTemp: Double, hotLimit: Double, unit: String)
+    {
         self.hasTemp = hasTemp
         self.cpuTemp = cpuTemp
         self.hotLimit = hotLimit
@@ -1014,7 +1024,8 @@ public struct HostRecord: Sendable, Equatable, Hashable, Identifiable {
     /// Splits an "IP domain" config string. The separator is whitespace; the
     /// domain is everything after the first field.
     public init(configValue: String) {
-        let fields = configValue
+        let fields =
+            configValue
             .split(whereSeparator: { $0.isWhitespace })
             .map(String.init)
         ip = fields.first ?? ""
@@ -1037,7 +1048,8 @@ public struct CNAMERecord: Sendable, Equatable, Hashable, Identifiable {
         self.domain = domain
         self.target = target
         self.ttl = ttl
-        self.configValue = ttl > 0
+        self.configValue =
+            ttl > 0
             ? "\(domain),\(target),\(ttl)"
             : "\(domain),\(target)"
     }
@@ -1047,7 +1059,8 @@ public struct CNAMERecord: Sendable, Equatable, Hashable, Identifiable {
     /// Splits a "domain,target[,ttl]" config string. A malformed or absent
     /// ttl yields 0.
     public init(configValue: String) {
-        let parts = configValue
+        let parts =
+            configValue
             .split(separator: ",", omittingEmptySubsequences: false)
             .map { $0.trimmingCharacters(in: .whitespaces) }
         domain = parts.count > 0 ? parts[0] : ""

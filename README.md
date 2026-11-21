@@ -72,6 +72,8 @@ just test        # PiholeKit + TiholeCore unit tests, on the Mac, no simulator
 just build       # generate the project and build for the iOS Simulator
 just ui-test     # drive the app through every tab against a mock Pi-hole
 just ci          # test + build
+just fmt         # swift-format + ruff at 80 columns (Swift runs in Docker)
+just fmt-check   # what CI checks
 ```
 
 The UI smoke test needs no Pi-hole.
