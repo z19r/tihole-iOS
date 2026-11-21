@@ -87,9 +87,9 @@ results; CI uploads them as the `screenshots` artifact.
 
 The listing lives in the repo. [`metadata/`](metadata) holds the
 description, promotional text, keywords, subtitle and URLs, wrapped at 80
-columns, and `review_notes.txt`, the notes for App Review. Run the **App Store assets** workflow from the Actions tab to
-upload the screenshots, the header image and all of that text to the
-editable version.
+columns, and `review_notes.txt`, the notes for App Review. Run the
+**App Store assets** workflow from the Actions tab to upload the
+screenshots, the header image and all of that text to the editable version.
 
 ### Website
 
@@ -158,6 +158,14 @@ the host.
 ## License
 
 Released under the [MIT License](LICENSE).
+
+The app links only Apple's system frameworks and contains no third-party
+code, fonts, or artwork. Build and release tooling (XcodeGen, Pillow, PyJWT,
+GitHub Actions) runs in CI and never ships in the app.
+
+Pi-hole is a registered trademark of Pi-hole LLC. tihole talks to Pi-hole
+only through its documented API, includes none of its code or logo, and is
+not affiliated with or endorsed by Pi-hole LLC.
 
 [ci-badge]:
   https://github.com/z19r/tihole-iOS/actions/workflows/ci.yml/badge.svg
