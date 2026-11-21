@@ -1,6 +1,7 @@
 import Foundation
 import PiholeKit
 import XCTest
+
 @testable import TiholeCore
 
 final class FormatTests: XCTestCase {
@@ -9,7 +10,7 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.count(999), "999")
         XCTAssertEqual(Format.count(1000), "1,000")
         XCTAssertEqual(Format.count(12345), "12,345")
-        XCTAssertEqual(Format.count(1234567), "1,234,567")
+        XCTAssertEqual(Format.count(1_234_567), "1,234,567")
         XCTAssertEqual(Format.count(-1234), "-1,234")
     }
 
@@ -23,7 +24,8 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(Format.uptime(seconds: 30), "0m")
         XCTAssertEqual(Format.uptime(seconds: 9 * 60), "9m")
         XCTAssertEqual(Format.uptime(seconds: 2 * 3600 + 15 * 60), "2h 15m")
-        XCTAssertEqual(Format.uptime(seconds: 3 * 86400 + 4 * 3600 + 59), "3d 4h")
+        XCTAssertEqual(
+            Format.uptime(seconds: 3 * 86400 + 4 * 3600 + 59), "3d 4h")
     }
 
     func testKibibytes() {
@@ -53,7 +55,8 @@ final class FormatTests: XCTestCase {
         let utc = try XCTUnwrap(TimeZone(identifier: "UTC"))
         XCTAssertEqual(Format.clock(1_700_000_000, timeZone: utc), "22:13:20")
         XCTAssertEqual(Format.clock(0, timeZone: utc), "-")
-        XCTAssertEqual(Format.shortDateTime(1_700_000_000, timeZone: utc), "Nov 14 22:13")
+        XCTAssertEqual(
+            Format.shortDateTime(1_700_000_000, timeZone: utc), "Nov 14 22:13")
     }
 
     func testIssues() {
@@ -92,11 +95,17 @@ final class ClassificationTests: XCTestCase {
     }
 
     func testDestructiveHint() {
-        let forbidden = PiholeError.api(APIError(status: 403, key: "forbidden", message: "No"))
-        XCTAssertTrue(ErrorText.describeDestructive(forbidden).contains("allow_destructive"))
+        let forbidden = PiholeError.api(
+            APIError(status: 403, key: "forbidden", message: "No"))
+        XCTAssertTrue(
+            ErrorText.describeDestructive(forbidden).contains(
+                "allow_destructive"))
 
-        let notFound = PiholeError.api(APIError(status: 404, key: "not_found", message: "Missing"))
-        XCTAssertFalse(ErrorText.describeDestructive(notFound).contains("allow_destructive"))
+        let notFound = PiholeError.api(
+            APIError(status: 404, key: "not_found", message: "Missing"))
+        XCTAssertFalse(
+            ErrorText.describeDestructive(notFound).contains(
+                "allow_destructive"))
     }
 
     func testCancellationDetection() {
@@ -112,11 +121,18 @@ final class ConfigTreeTests: XCTestCase {
     }
 
     func testFlattensPlainTree() throws {
-        let tree = try decode(#"{"dns":{"upstreams":["1.1.1.1"],"blocking":{"active":true}},"misc":{"nice":-10}}"#)
+        let tree = try decode(
+            #"""
+            {"dns":{"upstreams":["1.1.1.1"],"blocking":{"active":true}},
+             "misc":{"nice":-10}}
+            """#
+        )
 
         let leaves = ConfigTree.flatten(tree)
 
-        XCTAssertEqual(leaves.map(\.path), ["dns.blocking.active", "dns.upstreams", "misc.nice"])
+        XCTAssertEqual(
+            leaves.map(\.path),
+            ["dns.blocking.active", "dns.upstreams", "misc.nice"])
         XCTAssertEqual(leaves[0].value, .bool(true))
         XCTAssertEqual(leaves[2].value, .number(-10))
         XCTAssertEqual(leaves[0].section, "dns")
@@ -124,13 +140,16 @@ final class ConfigTreeTests: XCTestCase {
     }
 
     func testFlattensDetailedTree() throws {
-        let tree = try decode("""
-        {"dns":{"blocking":{"mode":{
-            "description":"How to answer blocked queries",
-            "type":"enum (string)",
-            "allowed":[{"item":"NULL","description":"0.0.0.0"},{"item":"NXDOMAIN","description":"nx"}],
-            "default":"NULL","modified":true,"flags":{"restart_dnsmasq":true},"value":"NXDOMAIN"}}}}
-        """)
+        let tree = try decode(
+            """
+            {"dns":{"blocking":{"mode":{
+                "description":"How to answer blocked queries",
+                "type":"enum (string)",
+                "allowed":[{"item":"NULL","description":"0.0.0.0"},
+                 {"item":"NXDOMAIN","description":"nx"}],
+                "default":"NULL","modified":true,
+                 "flags":{"restart_dnsmasq":true},"value":"NXDOMAIN"}}}}
+            """)
 
         let leaves = ConfigTree.flatten(tree)
 
@@ -142,7 +161,8 @@ final class ConfigTreeTests: XCTestCase {
         XCTAssertEqual(leaf.dataType, "enum (string)")
         XCTAssertTrue(leaf.modified)
         XCTAssertEqual(ConfigTree.allowedInputs(leaf), ["NULL", "NXDOMAIN"])
-        XCTAssertEqual(ConfigTree.editKind(leaf), .choice(["NULL", "NXDOMAIN"]))
+        XCTAssertEqual(
+            ConfigTree.editKind(leaf), .choice(["NULL", "NXDOMAIN"]))
         XCTAssertEqual(ConfigTree.typeLabel(leaf), "enum (string)")
     }
 
@@ -154,9 +174,12 @@ final class ConfigTreeTests: XCTestCase {
     func testFilter() {
         let leaves = [
             ConfigLeaf(path: "dns.upstreams", value: .array([])),
-            ConfigLeaf(path: "webserver.api.allow_destructive", value: .bool(false)),
+            ConfigLeaf(
+                path: "webserver.api.allow_destructive", value: .bool(false)),
         ]
-        XCTAssertEqual(ConfigTree.filter(leaves, query: "  DESTRUCT ").map(\.path), ["webserver.api.allow_destructive"])
+        XCTAssertEqual(
+            ConfigTree.filter(leaves, query: "  DESTRUCT ").map(\.path),
+            ["webserver.api.allow_destructive"])
         XCTAssertEqual(ConfigTree.filter(leaves, query: "").count, 2)
     }
 
@@ -166,43 +189,77 @@ final class ConfigTreeTests: XCTestCase {
         XCTAssertEqual(ConfigTree.stringify(.bool(false)), "false")
         XCTAssertEqual(ConfigTree.stringify(.number(53)), "53")
         XCTAssertEqual(ConfigTree.stringify(.number(0.5)), "0.5")
-        XCTAssertEqual(ConfigTree.stringify(.array([.string("a"), .number(2)])), "[a, 2]")
+        XCTAssertEqual(
+            ConfigTree.stringify(.array([.string("a"), .number(2)])), "[a, 2]")
         XCTAssertEqual(ConfigTree.stringify(.object([:])), "{…}")
     }
 
     func testEditKinds() {
-        XCTAssertEqual(ConfigTree.editKind(ConfigLeaf(path: "a", value: .bool(true))), .toggle)
-        XCTAssertEqual(ConfigTree.editKind(ConfigLeaf(path: "a", value: .number(1))), .number)
-        XCTAssertEqual(ConfigTree.editKind(ConfigLeaf(path: "a", value: .string("x"))), .text)
-        XCTAssertEqual(ConfigTree.editKind(ConfigLeaf(path: "a", value: .array([.string("x")]))), .stringList)
-        XCTAssertEqual(ConfigTree.editKind(ConfigLeaf(path: "a", value: .array([]))), .stringList)
-        XCTAssertEqual(ConfigTree.editKind(ConfigLeaf(path: "a", value: .array([.number(1)]))), .readOnly)
-        XCTAssertEqual(ConfigTree.editKind(ConfigLeaf(path: "a", value: .null)), .readOnly)
+        XCTAssertEqual(
+            ConfigTree.editKind(ConfigLeaf(path: "a", value: .bool(true))),
+            .toggle)
+        XCTAssertEqual(
+            ConfigTree.editKind(ConfigLeaf(path: "a", value: .number(1))),
+            .number)
+        XCTAssertEqual(
+            ConfigTree.editKind(ConfigLeaf(path: "a", value: .string("x"))),
+            .text)
+        XCTAssertEqual(
+            ConfigTree.editKind(
+                ConfigLeaf(path: "a", value: .array([.string("x")]))),
+            .stringList)
+        XCTAssertEqual(
+            ConfigTree.editKind(ConfigLeaf(path: "a", value: .array([]))),
+            .stringList)
+        XCTAssertEqual(
+            ConfigTree.editKind(
+                ConfigLeaf(path: "a", value: .array([.number(1)]))), .readOnly)
+        XCTAssertEqual(
+            ConfigTree.editKind(ConfigLeaf(path: "a", value: .null)), .readOnly)
     }
 
     func testParseKeepsOriginalType() throws {
-        XCTAssertEqual(try ConfigTree.parse(original: .bool(false), input: " true "), .bool(true))
-        XCTAssertEqual(try ConfigTree.parse(original: .number(1), input: "85"), .number(85))
-        XCTAssertEqual(try ConfigTree.parse(original: .number(1), input: "0.25"), .number(0.25))
-        XCTAssertEqual(try ConfigTree.parse(original: .string("a"), input: " b "), .string("b"))
-        XCTAssertThrowsError(try ConfigTree.parse(original: .number(1), input: "lots"))
-        XCTAssertThrowsError(try ConfigTree.parse(original: .bool(true), input: "maybe"))
+        XCTAssertEqual(
+            try ConfigTree.parse(original: .bool(false), input: " true "),
+            .bool(true))
+        XCTAssertEqual(
+            try ConfigTree.parse(original: .number(1), input: "85"), .number(85)
+        )
+        XCTAssertEqual(
+            try ConfigTree.parse(original: .number(1), input: "0.25"),
+            .number(0.25))
+        XCTAssertEqual(
+            try ConfigTree.parse(original: .string("a"), input: " b "),
+            .string("b"))
+        XCTAssertThrowsError(
+            try ConfigTree.parse(original: .number(1), input: "lots"))
+        XCTAssertThrowsError(
+            try ConfigTree.parse(original: .bool(true), input: "maybe"))
     }
 
     func testPatchNestsPath() {
         XCTAssertEqual(
             ConfigTree.patch(path: "misc.temp.limit", value: .number(85)),
-            .object(["misc": .object(["temp": .object(["limit": .number(85)])])])
+            .object(["misc": .object(["temp": .object(["limit": .number(85)])])]
+            )
         )
-        XCTAssertEqual(ConfigTree.patch(path: "top", value: .bool(true)), .object(["top": .bool(true)]))
+        XCTAssertEqual(
+            ConfigTree.patch(path: "top", value: .bool(true)),
+            .object(["top": .bool(true)]))
     }
 
     func testInfoRowsFlattenNestedSections() throws {
-        let info = try decode(#"{"model":"Pi 4","uname":{"sysname":"Linux","release":"6.6"},"dns":["a","b"],"skip":[{"x":1}],"none":null}"#)
+        let info = try decode(
+            #"""
+            {"model":"Pi 4","uname":{"sysname":"Linux","release":"6.6"},
+             "dns":["a","b"],"skip":[{"x":1}],"none":null}
+            """#
+        )
 
         let rows = InfoRows.flatten(info)
 
-        XCTAssertEqual(rows.map(\.key), ["dns", "model", "uname.release", "uname.sysname"])
+        XCTAssertEqual(
+            rows.map(\.key), ["dns", "model", "uname.release", "uname.sysname"])
         XCTAssertEqual(rows.first?.value, "a, b")
     }
 }
@@ -216,7 +273,8 @@ final class AppConfigTests: XCTestCase {
     }
 
     func testEmptyConfig() {
-        XCTAssertEqual(AppConfig().validationErrors(), ["no instances configured"])
+        XCTAssertEqual(
+            AppConfig().validationErrors(), ["no instances configured"])
         XCTAssertNil(AppConfig().activeInstance)
     }
 
@@ -224,11 +282,15 @@ final class AppConfigTests: XCTestCase {
         let first = InstanceConfig(name: "home", url: "http://10.0.0.53")
         let second = InstanceConfig(name: "home", url: "http://10.0.0.54")
         let third = InstanceConfig(name: " ", url: "ftp://nope")
-        let errors = AppConfig(activeID: first.id, instances: [first, second, third]).validationErrors()
+        let errors = AppConfig(
+            activeID: first.id, instances: [first, second, third]
+        ).validationErrors()
 
         XCTAssertTrue(errors.contains("instance \"home\": duplicate name"))
         XCTAssertTrue(errors.contains("instance 3: name is required"))
-        XCTAssertTrue(errors.contains("instance \"#3\": url must start with http:// or https://"))
+        XCTAssertTrue(
+            errors.contains(
+                "instance \"#3\": url must start with http:// or https://"))
     }
 
     func testActiveMustMatch() {
@@ -242,21 +304,28 @@ final class AppConfigTests: XCTestCase {
             ["active instance is required"]
         )
         // A stale active id still resolves to something usable.
-        XCTAssertEqual(AppConfig(activeID: UUID(), instances: [home]).activeInstance, home)
+        XCTAssertEqual(
+            AppConfig(activeID: UUID(), instances: [home]).activeInstance, home)
     }
 
     func testURLProblems() {
         XCTAssertNil(InstanceConfig.urlProblem("https://pi.hole"))
         XCTAssertNil(InstanceConfig.urlProblem("http://10.0.0.53:8080"))
         XCTAssertEqual(InstanceConfig.urlProblem(""), "url is required")
-        XCTAssertEqual(InstanceConfig.urlProblem("pi.hole"), "url must start with http:// or https://")
+        XCTAssertEqual(
+            InstanceConfig.urlProblem("pi.hole"),
+            "url must start with http:// or https://")
         XCTAssertEqual(InstanceConfig.urlProblem("http://"), "url has no host")
     }
 
     func testNormalizedURL() {
-        XCTAssertEqual(InstanceConfig.normalizedURL(" pi.hole "), "https://pi.hole")
-        XCTAssertEqual(InstanceConfig.normalizedURL("10.0.0.53/"), "https://10.0.0.53")
-        XCTAssertEqual(InstanceConfig.normalizedURL("HTTPS://pi.hole/admin/"), "HTTPS://pi.hole/admin")
+        XCTAssertEqual(
+            InstanceConfig.normalizedURL(" pi.hole "), "https://pi.hole")
+        XCTAssertEqual(
+            InstanceConfig.normalizedURL("10.0.0.53/"), "https://10.0.0.53")
+        XCTAssertEqual(
+            InstanceConfig.normalizedURL("HTTPS://pi.hole/admin/"),
+            "HTTPS://pi.hole/admin")
         XCTAssertEqual(InstanceConfig.normalizedURL(""), "")
     }
 
@@ -309,12 +378,33 @@ final class AppConfigTests: XCTestCase {
     }
 
     func testConfigRoundTripsThroughJSON() throws {
-        let home = InstanceConfig(name: "home", url: "https://pi.hole", verifyTLS: false)
-        let config = AppConfig(activeID: home.id, theme: "deep-night", instances: [home])
+        let home = InstanceConfig(
+            name: "home", url: "https://pi.hole", verifyTLS: false)
+        let config = AppConfig(
+            activeID: home.id, theme: "deep-night", instances: [home])
 
         let data = try JSONEncoder().encode(config)
         let decoded = try JSONDecoder().decode(AppConfig.self, from: data)
 
         XCTAssertEqual(decoded, config)
+    }
+
+    /// Config exactly as 1.0.1 saved it. The app falls back to an empty
+    /// config when decoding fails, so a schema change that breaks this would
+    /// silently drop every saved instance on upgrade.
+    func testDecodesConfigSavedByFirstRelease() throws {
+        let id = "5E1C7A2B-0D4F-4C3A-9B8E-1F2A3B4C5D6E"
+        let saved = """
+            {"activeID":"\(id)","theme":"gloss","instances":[{"id":"\(id)",\
+            "name":"home","url":"https://pi.hole","verifyTLS":false}]}
+            """
+
+        let config = try JSONDecoder().decode(
+            AppConfig.self, from: Data(saved.utf8))
+
+        XCTAssertEqual(config.activeInstance?.id, UUID(uuidString: id))
+        XCTAssertEqual(config.activeInstance?.url, "https://pi.hole")
+        XCTAssertEqual(config.activeInstance?.verifyTLS, false)
+        XCTAssertEqual(config.theme, "gloss")
     }
 }

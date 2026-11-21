@@ -10,27 +10,42 @@ struct ManageView: View {
             BannerSection(error: app.connectionProblem)
 
             Section {
-                link("Domains", detail: "Allow and deny lists, exact and regex", icon: "globe") {
+                link(
+                    "Domains", detail: "Allow and deny lists, exact and regex",
+                    icon: "globe"
+                ) {
                     DomainsView()
                 }
-                link("Adlists", detail: "Subscribed lists and gravity updates", icon: "list.bullet.rectangle.portrait") {
+                link(
+                    "Adlists", detail: "Subscribed lists and gravity updates",
+                    icon: "list.bullet.rectangle.portrait"
+                ) {
                     AdlistsView()
                 }
             }
             .rowStyle()
 
             Section {
-                link("Groups", detail: "Scopes for domains, clients, and lists", icon: "square.stack.3d.up") {
+                link(
+                    "Groups", detail: "Scopes for domains, clients, and lists",
+                    icon: "square.stack.3d.up"
+                ) {
                     GroupsView()
                 }
-                link("Clients", detail: "Devices and their group membership", icon: "laptopcomputer.and.iphone") {
+                link(
+                    "Clients", detail: "Devices and their group membership",
+                    icon: "laptopcomputer.and.iphone"
+                ) {
                     ClientsView()
                 }
             }
             .rowStyle()
 
             Section {
-                link("Local DNS", detail: "Host and CNAME records", icon: "signpost.right") {
+                link(
+                    "Local DNS", detail: "Host and CNAME records",
+                    icon: "signpost.right"
+                ) {
                     LocalDNSView()
                 }
             }

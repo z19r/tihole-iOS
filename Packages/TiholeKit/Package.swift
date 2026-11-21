@@ -18,6 +18,7 @@ let package = Package(
         // flattening. Depends on the client, never on SwiftUI.
         .target(name: "TiholeCore", dependencies: ["PiholeKit"]),
         .testTarget(name: "PiholeKitTests", dependencies: ["PiholeKit"]),
-        .testTarget(name: "TiholeCoreTests", dependencies: ["TiholeCore", "PiholeKit"]),
+        .testTarget(
+            name: "TiholeCoreTests", dependencies: ["TiholeCore", "PiholeKit"]),
     ]
 )

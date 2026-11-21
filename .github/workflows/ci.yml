@@ -30,6 +30,20 @@ jobs:
       - name: Test
         run: swift test --package-path Packages/TiholeKit
 
+  swift-format:
+    name: Swift format
+    runs-on: ubuntu-latest
+    # The same image `just fmt-check` runs, so local and CI output match.
+    container: swift:6.2
+    steps:
+      - uses: actions/checkout@v7
+
+      # 80 columns, see .swift-format.
+      - name: Format and lint
+        run: >-
+          swift-format lint --strict --recursive --parallel
+          Tihole TiholeUITests Packages
+
   scripts:
     name: Python scripts
     runs-on: ubuntu-latest

@@ -11,7 +11,9 @@ public struct InstanceConfig: Codable, Identifiable, Hashable, Sendable {
     /// False opts into accepting a self-signed certificate from this host.
     public var verifyTLS: Bool
 
-    public init(id: UUID = UUID(), name: String, url: String, verifyTLS: Bool = true) {
+    public init(
+        id: UUID = UUID(), name: String, url: String, verifyTLS: Bool = true
+    ) {
         self.id = id
         self.name = name
         self.url = url
@@ -28,7 +30,10 @@ public struct AppConfig: Codable, Equatable, Sendable {
     public var theme: String
     public var instances: [InstanceConfig]
 
-    public init(activeID: UUID? = nil, theme: String = "", instances: [InstanceConfig] = []) {
+    public init(
+        activeID: UUID? = nil, theme: String = "",
+        instances: [InstanceConfig] = []
+    ) {
         self.activeID = activeID
         self.theme = theme
         self.instances = instances
@@ -37,7 +42,9 @@ public struct AppConfig: Codable, Equatable, Sendable {
     /// The active instance, falling back to the first one when `activeID`
     /// does not match (for example after the active instance was deleted).
     public var activeInstance: InstanceConfig? {
-        if let activeID, let match = instances.first(where: { $0.id == activeID }) {
+        if let activeID,
+            let match = instances.first(where: { $0.id == activeID })
+        {
             return match
         }
         return instances.first
@@ -54,7 +61,8 @@ public struct AppConfig: Codable, Equatable, Sendable {
 
         var seen = Set<String>()
         for (index, instance) in instances.enumerated() {
-            let name = instance.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            let name = instance.name.trimmingCharacters(
+                in: .whitespacesAndNewlines)
             if name.isEmpty {
                 errors.append("instance \(index + 1): name is required")
             } else if seen.contains(name) {
@@ -112,7 +120,9 @@ extension InstanceConfig {
         if value.isEmpty {
             return value
         }
-        if !value.lowercased().hasPrefix("http://") && !value.lowercased().hasPrefix("https://") {
+        if !value.lowercased().hasPrefix("http://")
+            && !value.lowercased().hasPrefix("https://")
+        {
             value = "https://" + value
         }
         while value.hasSuffix("/") {
@@ -134,13 +144,15 @@ extension AppConfig {
     ) -> (config: AppConfig, id: UUID) {
         var next = self
         let savedID: UUID
-        if let id, let index = next.instances.firstIndex(where: { $0.id == id }) {
+        if let id, let index = next.instances.firstIndex(where: { $0.id == id })
+        {
             next.instances[index].name = name
             next.instances[index].url = url
             next.instances[index].verifyTLS = verifyTLS
             savedID = id
         } else {
-            let instance = InstanceConfig(name: name, url: url, verifyTLS: verifyTLS)
+            let instance = InstanceConfig(
+                name: name, url: url, verifyTLS: verifyTLS)
             next.instances.append(instance)
             savedID = instance.id
         }

@@ -44,7 +44,8 @@ struct ConfigTreeView: View {
                     ListPlaceholder(
                         load: load,
                         loadingText: "Loading configuration…",
-                        emptyText: query.isEmpty ? "No settings" : "No settings match \"\(query)\""
+                        emptyText: query.isEmpty
+                            ? "No settings" : "No settings match \"\(query)\""
                     )
                 }
                 .rowStyle()
@@ -213,7 +214,8 @@ private struct ConfigLeafSheet: View {
                 )
                 DetailRow(
                     label: "Status",
-                    value: leaf.modified ? "modified" : "unchanged from default",
+                    value: leaf.modified
+                        ? "modified" : "unchanged from default",
                     valueColor: leaf.modified ? theme.warn : theme.subtle
                 )
             } header: {
@@ -299,7 +301,9 @@ private struct ConfigLeafSheet: View {
                     .foregroundStyle(theme.accent)
             }
             .buttonStyle(.borderless)
-            .disabled(newItem.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(
+                newItem.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
             .accessibilityLabel("Add entry")
         }
     }
@@ -346,7 +350,8 @@ private struct ConfigLeafSheet: View {
         case .stringList:
             // An entry typed but not yet added still counts.
             var all = items
-            let pendingItem = newItem.trimmingCharacters(in: .whitespacesAndNewlines)
+            let pendingItem = newItem.trimmingCharacters(
+                in: .whitespacesAndNewlines)
             if !pendingItem.isEmpty {
                 all.append(pendingItem)
             }
@@ -366,7 +371,8 @@ private struct ConfigLeafSheet: View {
         defer { isSaving = false }
         do {
             let value = try editedValue()
-            try await client.patchConfig(ConfigTree.patch(path: leaf.path, value: value), restart: false)
+            try await client.patchConfig(
+                ConfigTree.patch(path: leaf.path, value: value), restart: false)
             await onSaved()
             dismiss()
         } catch {

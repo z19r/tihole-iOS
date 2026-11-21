@@ -36,7 +36,8 @@ struct Theme: Equatable {
     }
 
     var gradient: LinearGradient {
-        LinearGradient(colors: gradientStops, startPoint: .leading, endPoint: .trailing)
+        LinearGradient(
+            colors: gradientStops, startPoint: .leading, endPoint: .trailing)
     }
 
     func color(for tone: Tone) -> Color {
@@ -147,11 +148,15 @@ extension Theme {
     /// The rainbow easter-egg theme. Every token is a hue that rotates with
     /// `date`, so re-resolving it on a timer animates the whole app.
     static func party(at date: Date) -> Theme {
-        let base = (date.timeIntervalSinceReferenceDate * 60).truncatingRemainder(dividingBy: 360)
+        let base = (date.timeIntervalSinceReferenceDate * 60)
+            .truncatingRemainder(dividingBy: 360)
 
-        func wild(_ offset: Double, saturation: Double = 1, brightness: Double = 1) -> Color {
+        func wild(
+            _ offset: Double, saturation: Double = 1, brightness: Double = 1
+        ) -> Color {
             let hue = (base + offset).truncatingRemainder(dividingBy: 360) / 360
-            return Color(hue: hue, saturation: saturation, brightness: brightness)
+            return Color(
+                hue: hue, saturation: saturation, brightness: brightness)
         }
 
         return Theme(
@@ -193,11 +198,16 @@ enum ThemeName: String, CaseIterable, Identifiable {
 
     var blurb: String {
         switch self {
-        case .auto: return "Follows the system: Gloss in dark mode, Light Luxury in light."
+        case .auto:
+            return
+                "Follows the system: Gloss in dark mode, Light Luxury in light."
         case .gloss: return "Signature hot-pink-to-cyan palette on deep void."
-        case .deepNight: return "Calm midnight navy with a soft periwinkle accent."
-        case .lightLuxury: return "Warm ivory paper with a disciplined brass accent."
-        case .piholeClassic: return "The familiar Pi-hole red on warm near-black."
+        case .deepNight:
+            return "Calm midnight navy with a soft periwinkle accent."
+        case .lightLuxury:
+            return "Warm ivory paper with a disciplined brass accent."
+        case .piholeClassic:
+            return "The familiar Pi-hole red on warm near-black."
         }
     }
 

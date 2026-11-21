@@ -1,11 +1,13 @@
 import Foundation
 import XCTest
+
 @testable import PiholeKit
 
 final class BlockingTests: MockFTLTestCase {
     func testStatusStringBecomesBoolean() async throws {
         // FTL v6 reports the state as a status string on GET, not a boolean.
-        let client = await makeAuthedClient(.json(200, #"{"blocking":"disabled","timer":42,"took":0.0}"#))
+        let client = await makeAuthedClient(
+            .json(200, #"{"blocking":"disabled","timer":42,"took":0.0}"#))
 
         let status = try await client.blocking()
 
@@ -16,7 +18,8 @@ final class BlockingTests: MockFTLTestCase {
     }
 
     func testNullTimer() async throws {
-        let client = await makeAuthedClient(.json(200, #"{"blocking":"enabled","timer":null,"took":0.0}"#))
+        let client = await makeAuthedClient(
+            .json(200, #"{"blocking":"enabled","timer":null,"took":0.0}"#))
 
         let status = try await client.blocking()
 
@@ -25,7 +28,8 @@ final class BlockingTests: MockFTLTestCase {
     }
 
     func testSetBlockingWithTimer() async throws {
-        let client = await makeAuthedClient(.json(200, #"{"blocking":"disabled","timer":300}"#))
+        let client = await makeAuthedClient(
+            .json(200, #"{"blocking":"disabled","timer":300}"#))
 
         try await client.setBlocking(false, timer: 300)
 
@@ -37,7 +41,8 @@ final class BlockingTests: MockFTLTestCase {
     }
 
     func testSetBlockingSendsExplicitNullTimer() async throws {
-        let client = await makeAuthedClient(.json(200, #"{"blocking":"enabled","timer":null}"#))
+        let client = await makeAuthedClient(
+            .json(200, #"{"blocking":"enabled","timer":null}"#))
 
         try await client.setBlocking(true)
 
@@ -49,15 +54,21 @@ final class BlockingTests: MockFTLTestCase {
 
 final class StatsTests: MockFTLTestCase {
     func testSummaryDecodes() async throws {
-        let client = await makeAuthedClient(.json(200, """
-        {
-          "queries": {"total": 12345, "blocked": 2345, "percent_blocked": 18.99,
-                      "unique_domains": 800, "forwarded": 6000, "cached": 4000, "frequency": 1.5},
-          "clients": {"active": 12, "total": 30},
-          "gravity": {"domains_being_blocked": 150000, "last_update": 1700000000},
-          "took": 0.002
-        }
-        """))
+        let client = await makeAuthedClient(
+            .json(
+                200,
+                """
+                {
+                  "queries": {"total": 12345, "blocked": 2345,
+                   "percent_blocked": 18.99,
+                              "unique_domains": 800, "forwarded": 6000,
+                               "cached": 4000, "frequency": 1.5},
+                  "clients": {"active": 12, "total": 30},
+                  "gravity": {"domains_being_blocked": 150000,
+                   "last_update": 1700000000},
+                  "took": 0.002
+                }
+                """))
 
         let summary = try await client.summary()
 
@@ -69,7 +80,8 @@ final class StatsTests: MockFTLTestCase {
     }
 
     func testMissingKeysFallBackToZero() async throws {
-        let client = await makeAuthedClient(.json(200, #"{"queries":{"total":5},"took":0}"#))
+        let client = await makeAuthedClient(
+            .json(200, #"{"queries":{"total":5},"took":0}"#))
 
         let summary = try await client.summary()
 
@@ -80,7 +92,13 @@ final class StatsTests: MockFTLTestCase {
 
     func testTopDomainsQuery() async throws {
         let client = await makeAuthedClient(
-            .json(200, #"{"domains":[{"domain":"a.example","count":9}],"total_queries":10,"blocked_queries":1}"#)
+            .json(
+                200,
+                #"""
+                {"domains":[{"domain":"a.example","count":9}],
+                 "total_queries":10,"blocked_queries":1}
+                """#
+            )
         )
 
         let top = try await client.topDomains(blocked: true, count: 8)
@@ -92,7 +110,9 @@ final class StatsTests: MockFTLTestCase {
     }
 
     func testTopClientsOmitsNonPositiveCount() async throws {
-        let client = await makeAuthedClient(.json(200, #"{"clients":[{"ip":"10.0.0.2","name":null,"count":3}]}"#))
+        let client = await makeAuthedClient(
+            .json(
+                200, #"{"clients":[{"ip":"10.0.0.2","name":null,"count":3}]}"#))
 
         let top = try await client.topClients(blocked: false)
 
@@ -102,35 +122,59 @@ final class StatsTests: MockFTLTestCase {
     }
 
     func testUpstreamStatisticsAreFlattened() async throws {
-        let client = await makeAuthedClient(.json(200, """
-        {"upstreams":[{"ip":"1.1.1.1","name":"one.one.one.one","port":53,"count":40,
-                       "statistics":{"response":0.012,"variance":0.001}}],
-         "forwarded_queries":40,"total_queries":100}
-        """))
+        let client = await makeAuthedClient(
+            .json(
+                200,
+                """
+                {"upstreams":[{"ip":"1.1.1.1","name":"one.one.one.one",
+                 "port":53,"count":40,
+                               "statistics":{"response":0.012,
+                                "variance":0.001}}],
+                 "forwarded_queries":40,"total_queries":100}
+                """))
 
         let upstreams = try await client.upstreams()
 
-        XCTAssertEqual(upstreams.upstreams.first?.responseTime ?? 0, 0.012, accuracy: 0.0001)
+        XCTAssertEqual(
+            upstreams.upstreams.first?.responseTime ?? 0, 0.012,
+            accuracy: 0.0001)
         XCTAssertEqual(upstreams.totalQueries, 100)
     }
 
     func testHistoryDecodes() async throws {
         let client = await makeAuthedClient(
-            .json(200, #"{"history":[{"timestamp":1700000000,"total":10,"cached":2,"blocked":3,"forwarded":5}]}"#)
+            .json(
+                200,
+                #"""
+                {"history":[{"timestamp":1700000000,"total":10,"cached":2,
+                 "blocked":3,"forwarded":5}]}
+                """#
+            )
         )
 
         let history = try await client.history()
 
-        XCTAssertEqual(history.history, [HistoryPoint(timestamp: 1700000000, total: 10, cached: 2, blocked: 3, forwarded: 5)])
+        XCTAssertEqual(
+            history.history,
+            [
+                HistoryPoint(
+                    timestamp: 1_700_000_000, total: 10, cached: 2, blocked: 3,
+                    forwarded: 5)
+            ])
     }
 
     func testSystemReadsPercentKeys() async throws {
-        let client = await makeAuthedClient(.json(200, """
-        {"system":{"uptime":90061,"procs":120,
-          "memory":{"ram":{"total":4000000,"used":1000000,"%used":25.0},"swap":{"%used":1.5}},
-          "cpu":{"nprocs":4,"%cpu":12.5,"load":{"raw":[0.5,0.4,0.3],"percent":[12.0,10.0,8.0]}},
-          "ftl":{"%mem":0.8,"%cpu":0.2}},"took":0}
-        """))
+        let client = await makeAuthedClient(
+            .json(
+                200,
+                """
+                {"system":{"uptime":90061,"procs":120,
+                  "memory":{"ram":{"total":4000000,"used":1000000,"%used":25.0},
+                   "swap":{"%used":1.5}},
+                  "cpu":{"nprocs":4,"%cpu":12.5,"load":{"raw":[0.5,0.4,0.3],
+                   "percent":[12.0,10.0,8.0]}},
+                  "ftl":{"%mem":0.8,"%cpu":0.2}},"took":0}
+                """))
 
         let system = try await client.system()
 
@@ -147,7 +191,10 @@ final class StatsTests: MockFTLTestCase {
     }
 
     func testSensorsWithoutTemperature() async throws {
-        let client = await makeAuthedClient(.json(200, #"{"sensors":{"cpu_temp":null,"hot_limit":60,"unit":"C"}}"#))
+        let client = await makeAuthedClient(
+            .json(
+                200, #"{"sensors":{"cpu_temp":null,"hot_limit":60,"unit":"C"}}"#
+            ))
 
         let sensors = try await client.sensors()
 
@@ -157,11 +204,16 @@ final class StatsTests: MockFTLTestCase {
     }
 
     func testSensorsWithTemperature() async throws {
-        let client = await makeAuthedClient(.json(200, #"{"sensors":{"cpu_temp":48.3,"hot_limit":60,"unit":"C"}}"#))
+        let client = await makeAuthedClient(
+            .json(
+                200, #"{"sensors":{"cpu_temp":48.3,"hot_limit":60,"unit":"C"}}"#
+            ))
 
         let sensors = try await client.sensors()
 
-        XCTAssertEqual(sensors, Sensors(hasTemp: true, cpuTemp: 48.3, hotLimit: 60, unit: "C"))
+        XCTAssertEqual(
+            sensors,
+            Sensors(hasTemp: true, cpuTemp: 48.3, hotLimit: 60, unit: "C"))
     }
 }
 
@@ -169,9 +221,13 @@ final class QueriesTests: MockFTLTestCase {
     func testFilterSendsOnlySetFields() async throws {
         let client = await makeAuthedClient(.json(200, #"{"queries":[]}"#))
 
-        _ = try await client.queries(QueryFilter(length: 100, cursor: 55, domain: "ads.example.com", disk: true))
+        _ = try await client.queries(
+            QueryFilter(
+                length: 100, cursor: 55, domain: "ads.example.com", disk: true))
 
-        XCTAssertEqual(log.last?.rawQuery, "cursor=55&disk=true&domain=ads.example.com&length=100")
+        XCTAssertEqual(
+            log.last?.rawQuery,
+            "cursor=55&disk=true&domain=ads.example.com&length=100")
     }
 
     func testEmptyFilterSendsNoQuery() async throws {
@@ -184,12 +240,19 @@ final class QueriesTests: MockFTLTestCase {
     }
 
     func testPageDecodes() async throws {
-        let client = await makeAuthedClient(.json(200, """
-        {"queries":[{"id":7,"time":1700000000.25,"type":"A","domain":"ads.example.com","cname":null,
-                     "status":"GRAVITY","client":{"ip":"10.0.0.5","name":"laptop"},"dnssec":"UNKNOWN",
-                     "reply":{"type":"NODATA","time":0.0004},"list_id":3,"upstream":null}],
-         "cursor":7,"recordsFiltered":1,"recordsTotal":900,"draft_cursor":null}
-        """))
+        let client = await makeAuthedClient(
+            .json(
+                200,
+                """
+                {"queries":[{"id":7,"time":1700000000.25,"type":"A",
+                 "domain":"ads.example.com","cname":null,
+                             "status":"GRAVITY","client":{"ip":"10.0.0.5",
+                              "name":"laptop"},"dnssec":"UNKNOWN",
+                             "reply":{"type":"NODATA","time":0.0004},
+                              "list_id":3,"upstream":null}],
+                 "cursor":7,"recordsFiltered":1,"recordsTotal":900,
+                  "draft_cursor":null}
+                """))
 
         let page = try await client.queries()
 
@@ -198,7 +261,8 @@ final class QueriesTests: MockFTLTestCase {
         XCTAssertEqual(query.domain, "ads.example.com")
         XCTAssertEqual(query.cname, "")
         XCTAssertEqual(query.status, "GRAVITY")
-        XCTAssertEqual(query.client, DNSQuery.Client(ip: "10.0.0.5", name: "laptop"))
+        XCTAssertEqual(
+            query.client, DNSQuery.Client(ip: "10.0.0.5", name: "laptop"))
         XCTAssertEqual(query.reply.type, "NODATA")
         XCTAssertEqual(query.listID, 3)
         XCTAssertEqual(query.upstream, "")
@@ -210,10 +274,15 @@ final class QueriesTests: MockFTLTestCase {
 
 final class DomainsTests: MockFTLTestCase {
     func testListDecodesNullComment() async throws {
-        let client = await makeAuthedClient(.json(200, """
-        {"domains":[{"domain":"xn--bcher-kva.example","unicode":"bücher.example","type":"deny","kind":"exact",
-                     "comment":null,"groups":[0,2],"enabled":true,"id":4,"date_added":1,"date_modified":2}]}
-        """))
+        let client = await makeAuthedClient(
+            .json(
+                200,
+                """
+                {"domains":[{"domain":"xn--bcher-kva.example",
+                 "unicode":"bücher.example","type":"deny","kind":"exact",
+                             "comment":null,"groups":[0,2],"enabled":true,
+                              "id":4,"date_added":1,"date_modified":2}]}
+                """))
 
         let domains = try await client.domains()
 
@@ -226,7 +295,8 @@ final class DomainsTests: MockFTLTestCase {
     }
 
     func testAddPostsItemInBody() async throws {
-        let client = await makeAuthedClient(.json(201, #"{"domains":[{"domain":"ads.example.com","id":9}]}"#))
+        let client = await makeAuthedClient(
+            .json(201, #"{"domains":[{"domain":"ads.example.com","id":9}]}"#))
 
         let created = try await client.addDomain(
             type: .deny,
@@ -249,7 +319,8 @@ final class DomainsTests: MockFTLTestCase {
     func testAddWithoutGroupsOmitsKey() async throws {
         let client = await makeAuthedClient(.json(201, #"{"domains":[]}"#))
 
-        try await client.addDomain(type: .allow, kind: .exact, domain: "ok.example.com")
+        try await client.addDomain(
+            type: .allow, kind: .exact, domain: "ok.example.com")
 
         XCTAssertNil(log.last?.json["groups"])
     }
@@ -268,7 +339,9 @@ final class DomainsTests: MockFTLTestCase {
 
         let request = try XCTUnwrap(log.last)
         XCTAssertEqual(request.method, "PUT")
-        XCTAssertEqual(request.rawPath, "/api/domains/deny/regex/%5Eads%3F%5C.%28foo%7Cbar%29%2Fx$")
+        XCTAssertEqual(
+            request.rawPath,
+            "/api/domains/deny/regex/%5Eads%3F%5C.%28foo%7Cbar%29%2Fx$")
         XCTAssertEqual(request.json["enabled"] as? Bool, false)
         XCTAssertNil(request.json["domain"])
     }
@@ -276,18 +349,22 @@ final class DomainsTests: MockFTLTestCase {
     func testDeletePath() async throws {
         let client = await makeAuthedClient(.empty(204))
 
-        try await client.deleteDomain(type: .allow, kind: .exact, domain: "ok.example.com")
+        try await client.deleteDomain(
+            type: .allow, kind: .exact, domain: "ok.example.com")
 
         XCTAssertEqual(log.last?.method, "DELETE")
-        XCTAssertEqual(log.last?.rawPath, "/api/domains/allow/exact/ok.example.com")
+        XCTAssertEqual(
+            log.last?.rawPath, "/api/domains/allow/exact/ok.example.com")
     }
 }
 
 final class GroupsClientsListsTests: MockFTLTestCase {
     func testUpdateGroupEscapesName() async throws {
-        let client = await makeAuthedClient(.json(200, #"{"groups":[{"name":"kids room","enabled":false}]}"#))
+        let client = await makeAuthedClient(
+            .json(200, #"{"groups":[{"name":"kids room","enabled":false}]}"#))
 
-        let group = try await client.updateGroup(name: "kids room", comment: "tablets", enabled: false)
+        let group = try await client.updateGroup(
+            name: "kids room", comment: "tablets", enabled: false)
 
         XCTAssertEqual(group.name, "kids room")
         XCTAssertEqual(log.last?.rawPath, "/api/groups/kids%20room")
@@ -296,7 +373,8 @@ final class GroupsClientsListsTests: MockFTLTestCase {
     }
 
     func testAddGroupBody() async throws {
-        let client = await makeAuthedClient(.json(201, #"{"groups":[{"name":"iot","id":3}]}"#))
+        let client = await makeAuthedClient(
+            .json(201, #"{"groups":[{"name":"iot","id":3}]}"#))
 
         let group = try await client.addGroup(name: "iot", comment: "")
 
@@ -314,10 +392,14 @@ final class GroupsClientsListsTests: MockFTLTestCase {
     }
 
     func testSuggestionsDecode() async throws {
-        let client = await makeAuthedClient(.json(200, """
-        {"clients":[{"hwaddr":"aa:bb:cc:dd:ee:ff","macVendor":"Acme","lastQuery":1700000000,
-                     "name":"tv","addresses":"10.0.0.9,10.0.0.10"}]}
-        """))
+        let client = await makeAuthedClient(
+            .json(
+                200,
+                """
+                {"clients":[{"hwaddr":"aa:bb:cc:dd:ee:ff","macVendor":"Acme",
+                 "lastQuery":1700000000,
+                             "name":"tv","addresses":"10.0.0.9,10.0.0.10"}]}
+                """))
 
         let suggestions = try await client.clientSuggestions()
 
@@ -327,10 +409,15 @@ final class GroupsClientsListsTests: MockFTLTestCase {
     }
 
     func testListsQuery() async throws {
-        let client = await makeAuthedClient(.json(200, """
-        {"lists":[{"address":"https://example.com/hosts.txt","type":"block","comment":null,"groups":[0],
-                   "enabled":true,"id":1,"number":1234,"invalid_domains":2,"status":1}]}
-        """))
+        let client = await makeAuthedClient(
+            .json(
+                200,
+                """
+                {"lists":[{"address":"https://example.com/hosts.txt",
+                 "type":"block","comment":null,"groups":[0],
+                           "enabled":true,"id":1,"number":1234,
+                            "invalid_domains":2,"status":1}]}
+                """))
 
         let lists = try await client.lists(type: .block)
 
@@ -352,7 +439,9 @@ final class GroupsClientsListsTests: MockFTLTestCase {
         )
 
         let request = try XCTUnwrap(log.last)
-        XCTAssertEqual(request.rawPath, "/api/lists/https:%2F%2Fexample.com%2Fhosts.txt%3Fv=1")
+        XCTAssertEqual(
+            request.rawPath,
+            "/api/lists/https:%2F%2Fexample.com%2Fhosts.txt%3Fv=1")
         XCTAssertEqual(request.rawQuery, "type=allow")
         XCTAssertEqual(request.json["type"] as? String, "allow")
         XCTAssertEqual(request.json["groups"] as? [Int], [0, 1])
@@ -361,17 +450,21 @@ final class GroupsClientsListsTests: MockFTLTestCase {
 
 final class ConfigTests: MockFTLTestCase {
     func testConfigTreeAndDetailedParam() async throws {
-        let client = await makeAuthedClient(.json(200, #"{"config":{"dns":{"upstreams":["1.1.1.1"]}},"took":0}"#))
+        let client = await makeAuthedClient(
+            .json(
+                200, #"{"config":{"dns":{"upstreams":["1.1.1.1"]}},"took":0}"#))
 
         let tree = try await client.config(detailed: true)
 
-        XCTAssertEqual(tree.value(atPath: "dns.upstreams"), .array([.string("1.1.1.1")]))
+        XCTAssertEqual(
+            tree.value(atPath: "dns.upstreams"), .array([.string("1.1.1.1")]))
         XCTAssertEqual(log.last?.rawPath, "/api/config")
         XCTAssertEqual(log.last?.rawQuery, "detailed=true")
     }
 
     func testElementPathUsesSlashes() async throws {
-        let client = await makeAuthedClient(.json(200, #"{"config":{"dns":{"upstreams":[]}}}"#))
+        let client = await makeAuthedClient(
+            .json(200, #"{"config":{"dns":{"upstreams":[]}}}"#))
 
         _ = try await client.configElement("dns.upstreams")
 
@@ -382,7 +475,8 @@ final class ConfigTests: MockFTLTestCase {
         let client = await makeAuthedClient(.json(200, #"{"config":{}}"#))
 
         try await client.patchConfig(
-            .object(["misc": .object(["temp": .object(["limit": .number(85)])])]),
+            .object(["misc": .object(["temp": .object(["limit": .number(85)])])]
+            ),
             restart: false
         )
 
@@ -401,31 +495,44 @@ final class ConfigTests: MockFTLTestCase {
         try await client.addHostRecord(ip: "192.168.1.5", domain: "nas.lan")
 
         XCTAssertEqual(log.last?.method, "PUT")
-        XCTAssertEqual(log.last?.rawPath, "/api/config/dns/hosts/192.168.1.5%20nas.lan")
+        XCTAssertEqual(
+            log.last?.rawPath, "/api/config/dns/hosts/192.168.1.5%20nas.lan")
     }
 
     func testDeleteHostRecordPath() async throws {
         let client = await makeAuthedClient(.empty(204))
 
-        try await client.deleteHostRecord(HostRecord(ip: "fd00::5", domain: "nas.lan"))
+        try await client.deleteHostRecord(
+            HostRecord(ip: "fd00::5", domain: "nas.lan"))
 
         XCTAssertEqual(log.last?.method, "DELETE")
-        XCTAssertEqual(log.last?.rawPath, "/api/config/dns/hosts/fd00::5%20nas.lan")
+        XCTAssertEqual(
+            log.last?.rawPath, "/api/config/dns/hosts/fd00::5%20nas.lan")
     }
 
     func testDeleteSendsStoredStringUnchanged() async throws {
         let client = await makeAuthedClient(.empty(204))
 
-        try await client.deleteHostRecord(HostRecord(configValue: "10.0.0.5\tnas"))
-        XCTAssertEqual(log.last?.rawPath, "/api/config/dns/hosts/10.0.0.5%09nas")
+        try await client.deleteHostRecord(
+            HostRecord(configValue: "10.0.0.5\tnas"))
+        XCTAssertEqual(
+            log.last?.rawPath, "/api/config/dns/hosts/10.0.0.5%09nas")
 
-        try await client.deleteCNAMERecord(CNAMERecord(configValue: "a.lan, b.lan"))
-        XCTAssertEqual(log.last?.rawPath, "/api/config/dns/cnameRecords/a.lan%2C%20b.lan")
+        try await client.deleteCNAMERecord(
+            CNAMERecord(configValue: "a.lan, b.lan"))
+        XCTAssertEqual(
+            log.last?.rawPath, "/api/config/dns/cnameRecords/a.lan%2C%20b.lan")
     }
 
     func testHostRecordsParse() async throws {
         let client = await makeAuthedClient(
-            .json(200, #"{"config":{"dns":{"hosts":["192.168.1.5 nas.lan","10.0.0.1   router.lan alias", 7]}}}"#)
+            .json(
+                200,
+                #"""
+                {"config":{"dns":{"hosts":["192.168.1.5 nas.lan",
+                 "10.0.0.1   router.lan alias", 7]}}}
+                """#
+            )
         )
 
         let records = try await client.hostRecords()
@@ -437,7 +544,13 @@ final class ConfigTests: MockFTLTestCase {
 
     func testCNAMERecordsParse() async throws {
         let client = await makeAuthedClient(
-            .json(200, #"{"config":{"dns":{"cnameRecords":["a.lan,b.lan","c.lan,d.lan,300","e.lan,f.lan,oops"]}}}"#)
+            .json(
+                200,
+                #"""
+                {"config":{"dns":{"cnameRecords":["a.lan,b.lan",
+                 "c.lan,d.lan,300","e.lan,f.lan,oops"]}}}
+                """#
+            )
         )
 
         let records = try await client.cnameRecords()
@@ -450,24 +563,35 @@ final class ConfigTests: MockFTLTestCase {
     func testCNAMEWithTTLPath() async throws {
         let client = await makeAuthedClient(.empty(204))
 
-        try await client.addCNAMERecord(domain: "a.lan", target: "b.lan", ttl: 300)
+        try await client.addCNAMERecord(
+            domain: "a.lan", target: "b.lan", ttl: 300)
 
-        XCTAssertEqual(log.last?.rawPath, "/api/config/dns/cnameRecords/a.lan%2Cb.lan%2C300")
+        XCTAssertEqual(
+            log.last?.rawPath,
+            "/api/config/dns/cnameRecords/a.lan%2Cb.lan%2C300")
     }
 
     func testCNAMEOmitsNonPositiveTTL() async throws {
         let client = await makeAuthedClient(.empty(204))
 
-        try await client.deleteCNAMERecord(CNAMERecord(domain: "a.lan", target: "b.lan", ttl: 0))
+        try await client.deleteCNAMERecord(
+            CNAMERecord(domain: "a.lan", target: "b.lan", ttl: 0))
 
         XCTAssertEqual(log.last?.method, "DELETE")
-        XCTAssertEqual(log.last?.rawPath, "/api/config/dns/cnameRecords/a.lan%2Cb.lan")
+        XCTAssertEqual(
+            log.last?.rawPath, "/api/config/dns/cnameRecords/a.lan%2Cb.lan")
     }
 }
 
 final class InfoNetworkActionTests: MockFTLTestCase {
     func testInfoUnwrapsSection() async throws {
-        let client = await makeAuthedClient(.json(200, #"{"host":{"uname":{"sysname":"Linux"},"model":"Pi 4"},"took":0}"#))
+        let client = await makeAuthedClient(
+            .json(
+                200,
+                #"""
+                {"host":{"uname":{"sysname":"Linux"},"model":"Pi 4"},"took":0}
+                """#
+            ))
 
         let info = try await client.info("host")
 
@@ -476,7 +600,8 @@ final class InfoNetworkActionTests: MockFTLTestCase {
     }
 
     func testInfoWithoutSectionKeyDropsTook() async throws {
-        let client = await makeAuthedClient(.json(200, #"{"version":"v6.1","took":0.5}"#))
+        let client = await makeAuthedClient(
+            .json(200, #"{"version":"v6.1","took":0.5}"#))
 
         let info = try await client.info("ftl")
 
@@ -488,7 +613,13 @@ final class InfoNetworkActionTests: MockFTLTestCase {
             if request.rawPath == "/api/info/messages/count" {
                 return .json(200, #"{"count":2,"took":0}"#)
             }
-            return .json(200, #"{"messages":[{"id":1,"timestamp":1700000000,"type":"RATE_LIMIT","plain":"slow down","html":"<b>slow</b>","url":null}]}"#)
+            return .json(
+                200,
+                #"""
+                {"messages":[{"id":1,"timestamp":1700000000,"type":"RATE_LIMIT",
+                 "plain":"slow down","html":"<b>slow</b>","url":null}]}
+                """#
+            )
         }
         await client.setSessionID("S")
 
@@ -519,7 +650,13 @@ final class InfoNetworkActionTests: MockFTLTestCase {
 
     func testDNSLogCursor() async throws {
         let client = await makeAuthedClient(
-            .json(200, #"{"log":[{"timestamp":1700000000.5,"message":"query[A] x","prio":null}],"nextID":42}"#)
+            .json(
+                200,
+                #"""
+                {"log":[{"timestamp":1700000000.5,"message":"query[A] x",
+                 "prio":null}],"nextID":42}
+                """#
+            )
         )
 
         let first = try await client.dnsLog()
@@ -532,10 +669,16 @@ final class InfoNetworkActionTests: MockFTLTestCase {
     }
 
     func testNetworkDevices() async throws {
-        let client = await makeAuthedClient(.json(200, """
-        {"devices":[{"id":5,"hwaddr":"aa:bb:cc:dd:ee:ff","interface":"eth0","firstSeen":1,"lastQuery":2,
-                     "numQueries":77,"macVendor":null,"ips":[{"ip":"10.0.0.9","name":"tv","lastSeen":3}]}]}
-        """))
+        let client = await makeAuthedClient(
+            .json(
+                200,
+                """
+                {"devices":[{"id":5,"hwaddr":"aa:bb:cc:dd:ee:ff",
+                 "interface":"eth0","firstSeen":1,"lastQuery":2,
+                             "numQueries":77,"macVendor":null,
+                              "ips":[{"ip":"10.0.0.9","name":"tv",
+                              "lastSeen":3}]}]}
+                """))
 
         let devices = try await client.networkDevices()
 
@@ -553,7 +696,8 @@ final class InfoNetworkActionTests: MockFTLTestCase {
     }
 
     func testActionsPost() async throws {
-        let client = await makeAuthedClient(.json(200, #"{"status":"success"}"#))
+        let client = await makeAuthedClient(
+            .json(200, #"{"status":"success"}"#))
 
         try await client.restartDNS()
         try await client.flushLogs()
@@ -562,13 +706,22 @@ final class InfoNetworkActionTests: MockFTLTestCase {
         XCTAssertEqual(log.all.map(\.method), ["POST", "POST", "POST"])
         XCTAssertEqual(
             log.all.map(\.rawPath),
-            ["/api/action/restartdns", "/api/action/flush/logs", "/api/action/flush/network"]
+            [
+                "/api/action/restartdns", "/api/action/flush/logs",
+                "/api/action/flush/network",
+            ]
         )
     }
 
     func testDestructiveActionSurfaces403() async throws {
         let client = await makeAuthedClient(
-            .json(403, #"{"error":{"key":"forbidden","message":"Destructive actions are disabled","hint":null}}"#)
+            .json(
+                403,
+                #"""
+                {"error":{"key":"forbidden",
+                 "message":"Destructive actions are disabled","hint":null}}
+                """#
+            )
         )
 
         do {
@@ -582,14 +735,26 @@ final class InfoNetworkActionTests: MockFTLTestCase {
 
 final class GravityTests: MockFTLTestCase {
     func testStreamsLines() async throws {
-        let client = await makeAuthedClient(.text(200, "[i] Neutrino emissions detected\n[✓] Pulling blocklist\n[✓] Done\n"))
+        let client = await makeAuthedClient(
+            .text(
+                200,
+                """
+                [i] Neutrino emissions detected\n[✓] Pulling blocklist\n[✓] \
+                Done\n
+                """
+            ))
 
         var lines: [String] = []
         for try await line in client.updateGravity() {
             lines.append(line)
         }
 
-        XCTAssertEqual(lines, ["[i] Neutrino emissions detected", "[✓] Pulling blocklist", "[✓] Done"])
+        XCTAssertEqual(
+            lines,
+            [
+                "[i] Neutrino emissions detected", "[✓] Pulling blocklist",
+                "[✓] Done",
+            ])
         let request = try XCTUnwrap(log.last)
         XCTAssertEqual(request.method, "POST")
         XCTAssertEqual(request.rawPath, "/api/action/gravity")
@@ -602,7 +767,8 @@ final class GravityTests: MockFTLTestCase {
             if request.rawPath == "/api/auth" {
                 return .authOK("FRESH")
             }
-            return request.sid == "FRESH" ? .text(200, "ok\n") : .json(401, "{}")
+            return request.sid == "FRESH"
+                ? .text(200, "ok\n") : .json(401, "{}")
         }
 
         var lines: [String] = []
@@ -617,7 +783,9 @@ final class GravityTests: MockFTLTestCase {
 
     func testErrorStatusThrowsAPIError() async throws {
         let client = await makeAuthedClient(
-            .json(403, #"{"error":{"key":"forbidden","message":"No","hint":null}}"#)
+            .json(
+                403,
+                #"{"error":{"key":"forbidden","message":"No","hint":null}}"#)
         )
 
         do {
@@ -643,11 +811,15 @@ final class EscapeTests: XCTestCase {
 
     func testElementJoinsWithSlashes() {
         XCTAssertEqual(Escape.element("dns.cnameRecords"), "dns/cnameRecords")
-        XCTAssertEqual(Escape.element("webserver.api.allow_destructive"), "webserver/api/allow_destructive")
+        XCTAssertEqual(
+            Escape.element("webserver.api.allow_destructive"),
+            "webserver/api/allow_destructive")
     }
 
     func testQueryStringIsSortedAndEscaped() {
         XCTAssertEqual(Escape.queryString([]), "")
-        XCTAssertEqual(Escape.queryString([("b", "2"), ("a", "x y&z")]), "?a=x%20y%26z&b=2")
+        XCTAssertEqual(
+            Escape.queryString([("b", "2"), ("a", "x y&z")]), "?a=x%20y%26z&b=2"
+        )
     }
 }

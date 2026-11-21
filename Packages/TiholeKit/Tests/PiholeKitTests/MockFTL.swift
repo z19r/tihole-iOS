@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+
 @testable import PiholeKit
 
 /// A request as the mock FTL server saw it.
@@ -27,22 +28,29 @@ struct MockResponse {
     var contentType: String
 
     static func json(_ status: Int = 200, _ body: String) -> MockResponse {
-        MockResponse(status: status, body: Data(body.utf8), contentType: "application/json")
+        MockResponse(
+            status: status, body: Data(body.utf8),
+            contentType: "application/json")
     }
 
     static func text(_ status: Int = 200, _ body: String) -> MockResponse {
-        MockResponse(status: status, body: Data(body.utf8), contentType: "text/plain")
+        MockResponse(
+            status: status, body: Data(body.utf8), contentType: "text/plain")
     }
 
     static func empty(_ status: Int = 204) -> MockResponse {
-        MockResponse(status: status, body: Data(), contentType: "application/json")
+        MockResponse(
+            status: status, body: Data(), contentType: "application/json")
     }
 
     /// A valid login response carrying `sid`.
     static func authOK(_ sid: String) -> MockResponse {
         .json(
             200,
-            #"{"session":{"valid":true,"sid":"\#(sid)","csrf":"c","validity":1800,"totp":false},"took":0.1}"#
+            #"""
+            {"session":{"valid":true,"sid":"\#(sid)","csrf":"c","validity":1800,
+             "totp":false},"took":0.1}
+            """#
         )
     }
 }
@@ -72,12 +80,14 @@ final class MockURLProtocol: URLProtocol {
         true
     }
 
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest
+    {
         request
     }
 
     override func startLoading() {
-        guard let handler = MockURLProtocol.handler, let url = request.url else {
+        guard let handler = MockURLProtocol.handler, let url = request.url
+        else {
             client?.urlProtocol(self, didFailWithError: URLError(.unknown))
             return
         }
@@ -93,16 +103,20 @@ final class MockURLProtocol: URLProtocol {
 
         do {
             let answer = try handler(recorded)
-            guard let response = HTTPURLResponse(
-                url: url,
-                statusCode: answer.status,
-                httpVersion: "HTTP/1.1",
-                headerFields: ["Content-Type": answer.contentType]
-            ) else {
-                client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            guard
+                let response = HTTPURLResponse(
+                    url: url,
+                    statusCode: answer.status,
+                    httpVersion: "HTTP/1.1",
+                    headerFields: ["Content-Type": answer.contentType]
+                )
+            else {
+                client?.urlProtocol(
+                    self, didFailWithError: URLError(.badServerResponse))
                 return
             }
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(
+                self, didReceive: response, cacheStoragePolicy: .notAllowed)
             if !answer.body.isEmpty {
                 client?.urlProtocol(self, didLoad: answer.body)
             }
@@ -172,7 +186,9 @@ class MockFTLTestCase: XCTestCase {
 
     /// A client pointed at the mock server. Every request is recorded in
     /// `log` before `handler` answers it.
-    func makeClient(_ handler: @escaping MockURLProtocol.Handler) -> PiholeClient {
+    func makeClient(_ handler: @escaping MockURLProtocol.Handler)
+        -> PiholeClient
+    {
         let log = self.log
         MockURLProtocol.handler = { request in
             log.append(request)

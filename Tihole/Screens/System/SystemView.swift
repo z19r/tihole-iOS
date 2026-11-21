@@ -18,13 +18,18 @@ struct SystemView: View {
                 NavigationLink {
                     SystemInfoView()
                 } label: {
-                    row("Info", detail: "FTL, host, system, and version details", icon: "info.circle")
+                    row(
+                        "Info",
+                        detail: "FTL, host, system, and version details",
+                        icon: "info.circle")
                 }
                 NavigationLink {
                     MessagesView()
                 } label: {
                     HStack {
-                        row("Messages", detail: "Diagnosis messages from FTL", icon: "exclamationmark.bubble")
+                        row(
+                            "Messages", detail: "Diagnosis messages from FTL",
+                            icon: "exclamationmark.bubble")
                         Spacer()
                         if messageCount > 0 {
                             Badge(text: "\(messageCount)", color: theme.warn)
@@ -34,12 +39,17 @@ struct SystemView: View {
                 NavigationLink {
                     NetworkView()
                 } label: {
-                    row("Network", detail: "Devices FTL has seen on the network", icon: "network")
+                    row(
+                        "Network",
+                        detail: "Devices FTL has seen on the network",
+                        icon: "network")
                 }
                 NavigationLink {
                     LogTailView()
                 } label: {
-                    row("Log tail", detail: "Live DNS resolver log", icon: "text.alignleft")
+                    row(
+                        "Log tail", detail: "Live DNS resolver log",
+                        icon: "text.alignleft")
                 }
             }
             .rowStyle()
@@ -48,7 +58,10 @@ struct SystemView: View {
                 NavigationLink {
                     ActionsView()
                 } label: {
-                    row("Actions", detail: "Restart DNS, flush logs, flush network", icon: "bolt.trianglebadge.exclamationmark")
+                    row(
+                        "Actions",
+                        detail: "Restart DNS, flush logs, flush network",
+                        icon: "bolt.trianglebadge.exclamationmark")
                 }
             }
             .rowStyle()
@@ -66,7 +79,8 @@ struct SystemView: View {
         }
     }
 
-    private func row(_ title: String, detail: String, icon: String) -> some View {
+    private func row(_ title: String, detail: String, icon: String) -> some View
+    {
         Label {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -116,15 +130,20 @@ struct SystemInfoView: View {
 
             if sections.isEmpty {
                 Section {
-                    ListPlaceholder(load: load, loadingText: "Loading info…", emptyText: "No info available")
+                    ListPlaceholder(
+                        load: load, loadingText: "Loading info…",
+                        emptyText: "No info available")
                 }
                 .rowStyle()
             } else {
                 ForEach(sections) { section in
                     Section {
                         ForEach(section.rows) { row in
-                            DetailRow(label: row.key, value: row.value, monospaced: true)
-                                .font(.footnote)
+                            DetailRow(
+                                label: row.key, value: row.value,
+                                monospaced: true
+                            )
+                            .font(.footnote)
                         }
                     } header: {
                         Text(section.name)
@@ -160,7 +179,8 @@ struct SystemInfoView: View {
         for name in sectionNames {
             do {
                 let info = try await client.info(name)
-                fetched.append(InfoSection(name: name, rows: InfoRows.flatten(info)))
+                fetched.append(
+                    InfoSection(name: name, rows: InfoRows.flatten(info)))
             } catch {
                 if firstError == nil {
                     firstError = error
@@ -195,16 +215,24 @@ struct MessagesView: View {
 
             Section {
                 if messages.isEmpty {
-                    ListPlaceholder(load: load, loadingText: "Loading messages…", emptyText: "No diagnosis messages")
+                    ListPlaceholder(
+                        load: load, loadingText: "Loading messages…",
+                        emptyText: "No diagnosis messages")
                 } else {
                     ForEach(messages) { message in
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Badge(text: message.type.isEmpty ? "message" : message.type, color: theme.warn)
+                                Badge(
+                                    text: message.type.isEmpty
+                                        ? "message" : message.type,
+                                    color: theme.warn)
                                 Spacer()
-                                Text(Format.shortDateTime(Int64(message.timestamp)))
-                                    .font(.caption2.monospacedDigit())
-                                    .foregroundStyle(theme.subtle)
+                                Text(
+                                    Format.shortDateTime(
+                                        Int64(message.timestamp))
+                                )
+                                .font(.caption2.monospacedDigit())
+                                .foregroundStyle(theme.subtle)
                             }
                             Text(message.plain)
                                 .font(.footnote)
@@ -305,11 +333,15 @@ struct NetworkView: View {
 
             Section {
                 if devices.isEmpty {
-                    ListPlaceholder(load: load, loadingText: "Loading devices…", emptyText: "No network devices")
+                    ListPlaceholder(
+                        load: load, loadingText: "Loading devices…",
+                        emptyText: "No network devices")
                 } else {
                     ForEach(devices) { device in
                         NetworkDeviceRow(device: device)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            .swipeActions(
+                                edge: .trailing, allowsFullSwipe: false
+                            ) {
                                 Button {
                                     deleting = device
                                 } label: {
@@ -320,8 +352,10 @@ struct NetworkView: View {
                     }
                 }
             } header: {
-                Text(devices.count == 1 ? "1 device" : "\(devices.count) devices")
-                    .foregroundStyle(theme.subtle)
+                Text(
+                    devices.count == 1 ? "1 device" : "\(devices.count) devices"
+                )
+                .foregroundStyle(theme.subtle)
             }
             .rowStyle()
         }
@@ -482,7 +516,9 @@ struct LogTailView: View {
                                 Text(entry.text)
                                     .font(.caption2.monospaced())
                                     .foregroundStyle(theme.text)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .frame(
+                                        maxWidth: .infinity, alignment: .leading
+                                    )
                                     .textSelection(.enabled)
                             }
                             Color.clear
@@ -514,9 +550,13 @@ struct LogTailView: View {
                 Button {
                     following.toggle()
                 } label: {
-                    Image(systemName: following ? "arrow.down.to.line.circle.fill" : "arrow.down.to.line.circle")
+                    Image(
+                        systemName: following
+                            ? "arrow.down.to.line.circle.fill"
+                            : "arrow.down.to.line.circle")
                 }
-                .accessibilityLabel(following ? "Stop following new lines" : "Follow new lines")
+                .accessibilityLabel(
+                    following ? "Stop following new lines" : "Follow new lines")
             }
         }
         .task(id: app.generation) {
@@ -560,7 +600,10 @@ struct LogTailView: View {
         for line in page.log {
             next += 1
             let message = line.message.trimmingCharacters(in: .newlines)
-            updated.append(LogEntry(id: next, text: Format.clock(line.timestamp) + "  " + message))
+            updated.append(
+                LogEntry(
+                    id: next,
+                    text: Format.clock(line.timestamp) + "  " + message))
         }
         if updated.count > maxLines {
             updated.removeFirst(updated.count - maxLines)
@@ -616,7 +659,8 @@ struct ActionsView: View {
 
     var body: some View {
         List {
-            BannerSection(error: load.error ?? app.connectionProblem, note: note)
+            BannerSection(
+                error: load.error ?? app.connectionProblem, note: note)
 
             Section {
                 ForEach(actions) { action in
@@ -641,8 +685,13 @@ struct ActionsView: View {
             } header: {
                 Text("Destructive actions")
             } footer: {
-                Text("These may require webserver.api.allow_destructive in the Pi-hole configuration.")
-                    .foregroundStyle(theme.subtle)
+                Text(
+                    """
+                    These may require webserver.api.allow_destructive in the \
+                    Pi-hole configuration.
+                    """
+                )
+                .foregroundStyle(theme.subtle)
             }
             .rowStyle()
         }

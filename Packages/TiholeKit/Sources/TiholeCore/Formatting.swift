@@ -58,7 +58,11 @@ public enum Format {
     public static func memory(_ system: SystemInfo) -> String {
         let percentage = String(format: "%.1f%%", system.memUsedPercent)
         if system.memTotalKiB > 0 {
-            return "\(percentage) · \(kibibytes(system.memUsedKiB))/\(kibibytes(system.memTotalKiB))"
+            return
+                """
+                \(percentage) · \
+                \(kibibytes(system.memUsedKiB))/\(kibibytes(system.memTotalKiB))
+                """
         }
         return percentage
     }
@@ -85,7 +89,9 @@ public enum Format {
     }
 
     /// Wall-clock time of a unix timestamp: "15:04:05".
-    public static func clock(_ epochSeconds: Double, timeZone: TimeZone = .current) -> String {
+    public static func clock(
+        _ epochSeconds: Double, timeZone: TimeZone = .current
+    ) -> String {
         if epochSeconds <= 0 {
             return "-"
         }
@@ -95,7 +101,9 @@ public enum Format {
     }
 
     /// Short date and time of a unix timestamp: "Jan 2 15:04".
-    public static func shortDateTime(_ epochSeconds: Int64, timeZone: TimeZone = .current) -> String {
+    public static func shortDateTime(
+        _ epochSeconds: Int64, timeZone: TimeZone = .current
+    ) -> String {
         if epochSeconds <= 0 {
             return "-"
         }
@@ -104,7 +112,9 @@ public enum Format {
         )
     }
 
-    private static func formatter(_ pattern: String, _ timeZone: TimeZone) -> DateFormatter {
+    private static func formatter(_ pattern: String, _ timeZone: TimeZone)
+        -> DateFormatter
+    {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = timeZone
@@ -114,7 +124,8 @@ public enum Format {
 
     /// The trimmed string, or "-" when it is blank.
     public static func orDash(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "-" : value
+        value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "-" : value
     }
 }
 
@@ -131,7 +142,8 @@ public enum QueryStatus {
     /// DENYLIST, REGEX, anything containing BLOCK) are `.block`; answered
     /// ones (FORWARDED, CACHE, RETRIED) are `.allow`.
     public static func tone(_ status: String) -> Tone {
-        let value = status.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let value = status.trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
         if value.isEmpty {
             return .neutral
         }
@@ -139,13 +151,15 @@ public enum QueryStatus {
             || value.hasPrefix("GRAVITY")
             || value.hasPrefix("DENYLIST")
             || value.hasPrefix("REGEX")
-            || value.hasPrefix("SPECIAL_DOMAIN") {
+            || value.hasPrefix("SPECIAL_DOMAIN")
+        {
             return .block
         }
         if value.hasPrefix("FORWARD")
             || value.hasPrefix("CACHE")
             || value.hasPrefix("RETRIED")
-            || value == "OK" {
+            || value == "OK"
+        {
             return .allow
         }
         return .neutral
@@ -215,11 +229,18 @@ public enum ErrorText {
         guard let apiError = (error as? PiholeError)?.apiError else {
             return base
         }
-        let haystack = (apiError.message + " " + apiError.key + " " + apiError.hint).lowercased()
+        let haystack =
+            (apiError.message + " " + apiError.key + " " + apiError.hint)
+            .lowercased()
         if apiError.status == 403
             || haystack.contains("destructive")
-            || haystack.contains("forbidden") {
-            return base + " Enable webserver.api.allow_destructive in the Pi-hole config to permit this."
+            || haystack.contains("forbidden")
+        {
+            return base + " "
+                + """
+                Enable webserver.api.allow_destructive in the Pi-hole \
+                config to permit this.
+                """
         }
         return base
     }

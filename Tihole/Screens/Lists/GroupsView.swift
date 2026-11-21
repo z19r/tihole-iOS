@@ -24,7 +24,9 @@ struct GroupsView: View {
 
             Section {
                 if groups.isEmpty {
-                    ListPlaceholder(load: load, loadingText: "Loading groups…", emptyText: "No groups")
+                    ListPlaceholder(
+                        load: load, loadingText: "Loading groups…",
+                        emptyText: "No groups")
                 } else {
                     ForEach(groups) { group in
                         Button {
@@ -48,7 +50,8 @@ struct GroupsView: View {
                             } label: {
                                 Label(
                                     group.enabled ? "Disable" : "Enable",
-                                    systemImage: group.enabled ? "pause.circle" : "play.circle"
+                                    systemImage: group.enabled
+                                        ? "pause.circle" : "play.circle"
                                 )
                             }
                             .tint(theme.accent)
@@ -121,7 +124,9 @@ struct GroupsView: View {
             return
         }
         do {
-            try await client.updateGroup(name: group.name, comment: group.comment, enabled: !group.enabled)
+            try await client.updateGroup(
+                name: group.name, comment: group.comment,
+                enabled: !group.enabled)
             await reload()
         } catch {
             load.fail(error)
@@ -238,11 +243,14 @@ private struct GroupForm: View {
         isSaving = true
         defer { isSaving = false }
         do {
-            let commentText = comment.trimmingCharacters(in: .whitespacesAndNewlines)
+            let commentText = comment.trimmingCharacters(
+                in: .whitespacesAndNewlines)
             if let original = item.original {
-                try await client.updateGroup(name: original.name, comment: commentText, enabled: enabled)
+                try await client.updateGroup(
+                    name: original.name, comment: commentText, enabled: enabled)
             } else {
-                try await client.addGroup(name: trimmedName, comment: commentText)
+                try await client.addGroup(
+                    name: trimmedName, comment: commentText)
             }
             await onSaved()
             dismiss()
