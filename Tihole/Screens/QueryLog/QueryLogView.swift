@@ -198,7 +198,7 @@ struct QueryLogView: View {
     /// detail sheet or confirmation is up, so rows do not move underneath it.
     @MainActor
     private func fetch(force: Bool) async {
-        guard let client = app.client, app.isForeground else {
+        guard app.canRead, app.isForeground else {
             return
         }
         if !force && (selected != nil || pending != nil) {
@@ -210,7 +210,7 @@ struct QueryLogView: View {
             filter.domain = filterDomain
         }
 
-        let combined = app.isCombined ? app.combinedClient : nil
+        let combined = app.combinedClient
 
         load.begin()
         do {
@@ -218,7 +218,8 @@ struct QueryLogView: View {
                 if let combined {
                     try await combined.queries(filter)
                 } else {
-                    Combined(value: try await client.queries(filter))
+                    Combined(
+                        value: try await app.requireClient().queries(filter))
                 }
             guard startedAt == app.generation else {
                 return

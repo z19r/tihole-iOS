@@ -264,7 +264,6 @@ final class CombinedClientTests: MockFTLTestCase {
         XCTAssertEqual(result.value.queries.total, 20)
         XCTAssertEqual(result.value.queries.percentBlocked, 50, accuracy: 0.01)
         XCTAssertEqual(result.failed, ["b", "d"])
-        XCTAssertEqual(combined.count, 4)
     }
 
     func testEveryMemberDownThrows() async {

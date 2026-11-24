@@ -129,7 +129,7 @@ struct DashboardView: View {
                             """)
                 }
 
-                if !data.loaded && app.client != nil {
+                if !data.loaded && app.canRead {
                     ProgressView("Loading dashboard…")
                         .tint(theme.accent)
                         .foregroundStyle(theme.subtle)
@@ -523,33 +523,43 @@ struct DashboardView: View {
 
     @MainActor
     private func refresh(force: Bool = false) async {
-        guard let client = app.client, app.isForeground else {
+        guard app.canRead, app.isForeground else {
             return
+        }
+        // Nil in combined mode when the active Pi-hole is misconfigured; the
+        // merged panels still load and the per-machine ones report why.
+        let active = app.client
+        let problem = app.connectionProblem ?? "No active instance"
+        let client: @Sendable () throws -> PiholeClient = {
+            guard let active else {
+                throw ConfigProblem(messages: [problem])
+            }
+            return active
         }
         let startedAt = app.generation
         let count = topCount
         let slow =
             force || Date().timeIntervalSince(slowFetchedAt) >= slowInterval
-        let combined = app.isCombined ? app.combinedClient : nil
+        let combined = app.combinedClient
 
         async let summary = capture {
             try await readStats(combined, { try await $0.summary() }) {
-                try await client.summary()
+                try await client().summary()
             }
         }
         async let history = capture(if: slow) {
             try await readStats(combined, { try await $0.history() }) {
-                try await client.history()
+                try await client().history()
             }
         }
         async let types = capture {
             try await readStats(combined, { try await $0.queryTypes() }) {
-                try await client.queryTypes()
+                try await client().queryTypes()
             }
         }
         async let upstreams = capture {
             try await readStats(combined, { try await $0.upstreams() }) {
-                try await client.upstreams()
+                try await client().upstreams()
             }
         }
         async let topDomains = capture {
@@ -557,7 +567,7 @@ struct DashboardView: View {
                 combined,
                 { try await $0.topDomains(blocked: false, count: count) }
             ) {
-                try await client.topDomains(blocked: false, count: count)
+                try await client().topDomains(blocked: false, count: count)
             }
         }
         async let topBlocked = capture {
@@ -565,7 +575,7 @@ struct DashboardView: View {
                 combined,
                 { try await $0.topDomains(blocked: true, count: count) }
             ) {
-                try await client.topDomains(blocked: true, count: count)
+                try await client().topDomains(blocked: true, count: count)
             }
         }
         async let topClients = capture {
@@ -573,12 +583,12 @@ struct DashboardView: View {
                 combined,
                 { try await $0.topClients(blocked: false, count: count) }
             ) {
-                try await client.topClients(blocked: false, count: count)
+                try await client().topClients(blocked: false, count: count)
             }
         }
-        async let system = capture { try await client.system() }
-        async let sensors = capture(if: slow) { try await client.sensors() }
-        async let messages = capture(if: slow) { try await client.messages() }
+        async let system = capture { try await client().system() }
+        async let sensors = capture(if: slow) { try await client().sensors() }
+        async let messages = capture(if: slow) { try await client().messages() }
 
         let summaryResult = await summary
         let historyResult = await history
