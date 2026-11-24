@@ -37,9 +37,9 @@ public final class CombinedClient: @unchecked Sendable {
     static let memberCooldown = 30.0
 
     public let members: [Member]
-    /// Instances that could not be built (no password, bad URL). They count
-    /// as failed on every call.
-    public let unavailable: [String]
+    /// Instances that could not be built (no password, bad URL), each with
+    /// the reason. They count as failed on every call.
+    public let unavailable: [String: String]
 
     /// Clock, swappable in tests.
     let now: @Sendable () -> Date
@@ -47,17 +47,25 @@ public final class CombinedClient: @unchecked Sendable {
     /// When each member last failed; absent once it answers again.
     private var down: [String: Date] = [:]
 
-    public convenience init(members: [Member], unavailable: [String] = []) {
+    public convenience init(
+        members: [Member], unavailable: [String: String] = [:]
+    ) {
         self.init(members: members, unavailable: unavailable, now: Date.init)
     }
 
     init(
-        members: [Member], unavailable: [String],
+        members: [Member], unavailable: [String: String],
         now: @escaping @Sendable () -> Date
     ) {
         self.members = members
         self.unavailable = unavailable
         self.now = now
+    }
+
+    /// Every configured instance, reachable or not: the N in "All (N)" and
+    /// the blocking pill's total.
+    public var total: Int {
+        members.count + unavailable.count
     }
 
     private func coolingDown(_ name: String) -> Bool {
@@ -81,13 +89,16 @@ public final class CombinedClient: @unchecked Sendable {
     /// member's error, and the sorted names of the members left out.
     func fanOut<T: Sendable>(
         skipDown: Bool = true,
+        over subset: [Member]? = nil,
         _ operation: @escaping @Sendable (PiholeClient) async throws -> T
     ) async throws -> (
         results: [(name: String, value: T)],
         errors: [(name: String, error: Error)],
         failed: [String]
     ) {
-        let live = members.filter { !skipDown || !coolingDown($0.name) }
+        let live = (subset ?? members).filter {
+            !skipDown || !coolingDown($0.name)
+        }
         let outcomes = await withTaskGroup(
             of: (Int, Result<T, Error>).self
         ) { group in
@@ -132,7 +143,7 @@ public final class CombinedClient: @unchecked Sendable {
             }
         }
         let answered = Set(results.map(\.name))
-        let failed = (members.map(\.name) + unavailable)
+        let failed = (members.map(\.name) + unavailable.keys)
             .filter { !answered.contains($0) }
             .sorted()
         return (results, errors, failed)
@@ -183,9 +194,49 @@ public final class CombinedClient: @unchecked Sendable {
     }
 
     public func summary() async throws -> Combined<Summary> {
-        try await merged({ try await $0.summary() }) {
-            Merge.summary($0.map(\.value))
+        try await summaryByMember().merged
+    }
+
+    /// The merged summary plus each answering member's own, from the same
+    /// single request per member. The dashboard reads each member's gravity
+    /// from it.
+    public func summaryByMember() async throws -> (
+        merged: Combined<Summary>, perMember: [String: Summary]
+    ) {
+        var perMember: [String: Summary] = [:]
+        let merged = try await merged({ try await $0.summary() }) { parts in
+            for (name, summary) in parts {
+                perMember[name] = summary
+            }
+            return Merge.summary(parts.map(\.value))
         }
+        return (merged, perMember)
+    }
+
+    /// Calls every member except `skipped`, keeping each answer apart. Members
+    /// in cooldown are not called and get `MemberError.unreachable`; instances
+    /// that could not be built get `MemberError.notSetUp`. Never throws for a
+    /// member; only the caller's cancellation ends it early.
+    public func eachMember<T: Sendable>(
+        except skipped: PiholeClient? = nil,
+        _ operation: @escaping @Sendable (PiholeClient) async throws -> T
+    ) async throws -> [String: Result<T, Error>] {
+        let others = members.filter { $0.client !== skipped }
+        let (results, errors, _) = try await fanOut(over: others, operation)
+        var out: [String: Result<T, Error>] = [:]
+        for member in others {
+            out[member.name] = .failure(MemberError.unreachable)
+        }
+        for (name, error) in errors {
+            out[name] = .failure(error)
+        }
+        for (name, value) in results {
+            out[name] = .success(value)
+        }
+        for (name, reason) in unavailable {
+            out[name] = .failure(MemberError.notSetUp(reason))
+        }
+        return out
     }
 
     public func history() async throws -> Combined<QueryHistory> {
@@ -241,12 +292,15 @@ public final class CombinedClient: @unchecked Sendable {
         }
     }
 
-    /// Blocking across every member: `isBlocking` only when all of them
-    /// block, with `on` of `total` answering members blocking.
+    /// Blocking across every member. `isBlocking` means every member that
+    /// answered blocks; `total` counts every configured instance, so
+    /// `on < total` while blocking means some are unreachable.
     public func blocking() async throws -> Combined<BlockingStatus> {
-        try await merged({ try await $0.blocking() }) {
+        var result = try await merged({ try await $0.blocking() }) {
             Merge.blocking($0.map(\.value))
         }
+        result.value.total = total
+        return result
     }
 
     /// Turns blocking on or off on every member, cooldown or not, since this
@@ -258,8 +312,17 @@ public final class CombinedClient: @unchecked Sendable {
         let (_, errors, _) = try await fanOut(skipDown: false) {
             try await $0.setBlocking(blocking, timer: timer)
         }
-        guard errors.isEmpty else {
-            throw CombinedWriteError(failures: errors)
+        let failures =
+            errors.map { name, error in
+                (
+                    name,
+                    (error as? LocalizedError)?.errorDescription
+                        ?? error.localizedDescription
+                )
+            }
+            + unavailable.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
+        guard failures.isEmpty else {
+            throw CombinedWriteError(failures: failures)
         }
     }
 }
@@ -309,16 +372,27 @@ extension Result where Failure == Error {
 
 /// A combined write that some members did not apply.
 public struct CombinedWriteError: LocalizedError {
-    public let failures: [(name: String, error: Error)]
+    /// Each member that was not changed, and why.
+    public let failures: [(name: String, reason: String)]
 
     public var errorDescription: String? {
-        failures.map { name, error in
-            let reason =
-                (error as? LocalizedError)?.errorDescription
-                ?? error.localizedDescription
-            return "blocking not changed on \(name): \(reason)"
+        failures.map { "blocking not changed on \($0.name): \($0.reason)" }
+            .joined(separator: "\n")
+    }
+}
+
+/// Why one member has no answer in `CombinedClient.eachMember`.
+public enum MemberError: LocalizedError {
+    /// It failed recently and is skipped until its cooldown ends.
+    case unreachable
+    /// Its client could not be built, for this reason.
+    case notSetUp(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .unreachable: return "unreachable"
+        case .notSetUp(let reason): return reason
         }
-        .joined(separator: "\n")
     }
 }
 
@@ -484,17 +558,22 @@ enum Merge {
         return count > 0 ? Array(sorted.prefix(count)) : sorted
     }
 
+    /// `total` here counts the members that answered; `CombinedClient`
+    /// replaces it with every configured instance.
     static func blocking(_ parts: [BlockingStatus]) -> BlockingStatus {
         var out = BlockingStatus()
         out.total = parts.count
         out.on = parts.filter(\.isBlocking).count
-        out.isBlocking = out.on == out.total
+        out.isBlocking = out.total > 0 && out.on == out.total
         out.status = out.isBlocking ? "enabled" : "disabled"
         // The soonest re-enable among the members that are off.
-        out.timer = parts.filter { !$0.isBlocking }
-            .compactMap(\.timer)
-            .filter { $0 > 0 }
-            .min()
+        out.timer =
+            out.isBlocking
+            ? nil
+            : parts.filter { !$0.isBlocking }
+                .compactMap(\.timer)
+                .filter { $0 > 0 }
+                .min()
         return out
     }
 

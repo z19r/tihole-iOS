@@ -14,8 +14,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   merge every Pi-hole into one Dashboard and Query Log, for setups that run
   several Pi-holes for redundancy. Unreachable Pi-holes are named and the rest
   still show. Blocking on/off covers every Pi-hole in this mode, and the pill
-  shows how many are blocking (for example `Partial 1/2`). Other changes still
-  go to the active instance.
+  shows how many are blocking (for example `Partial 1/2`, or `On 1/2 ⚠` when
+  one is unreachable). The Dashboard shows CPU, memory, temperature, load,
+  gravity and diagnostics per Pi-hole in this mode. Adding the second
+  instance asks whether to combine. Other changes still go to the active
+  instance.
 
 ### Changed
 

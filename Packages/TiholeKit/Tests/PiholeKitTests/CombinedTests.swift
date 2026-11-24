@@ -250,7 +250,7 @@ final class CombinedClientTests: MockFTLTestCase {
         serve(down: ["b"])
         let combined = CombinedClient(
             members: [member("c"), member("b"), member("a")],
-            unavailable: ["d"])
+            unavailable: ["d": "no password"])
 
         let result = try await combined.summary()
 
@@ -304,7 +304,7 @@ final class CombinedClientTests: MockFTLTestCase {
     func testCooldownSkipsThenRetries() async throws {
         let clock = FakeClock()
         let combined = CombinedClient(
-            members: [member("a"), member("b")], unavailable: [],
+            members: [member("a"), member("b")], unavailable: [:],
             now: { clock.now })
 
         serve(down: ["b"])
@@ -327,14 +327,70 @@ final class CombinedClientTests: MockFTLTestCase {
 
     func testCombinedBlockingStatus() async throws {
         serve(down: ["b"])
-        let combined = CombinedClient(members: [member("a"), member("b")])
+        let combined = CombinedClient(
+            members: [member("a"), member("b")],
+            unavailable: ["c": "no password"])
 
         let result = try await combined.blocking()
 
+        // Every reachable member blocks; the total counts the unreachable
+        // member and the one that could not be built.
         XCTAssertEqual(result.value.on, 1)
-        XCTAssertEqual(result.value.total, 1)
+        XCTAssertEqual(result.value.total, 3)
         XCTAssertTrue(result.value.isBlocking)
-        XCTAssertEqual(result.failed, ["b"])
+        XCTAssertEqual(result.failed, ["b", "c"])
+    }
+
+    func testSetBlockingNamesUnavailableInstances() async throws {
+        serve()
+        let combined = CombinedClient(
+            members: [member("a")], unavailable: ["c": "no password"])
+
+        do {
+            try await combined.setBlocking(true)
+            XCTFail("expected an error")
+        } catch {
+            XCTAssertEqual(
+                error.localizedDescription,
+                "blocking not changed on c: no password")
+        }
+    }
+
+    func testSummaryByMemberKeepsEachAnswer() async throws {
+        serve(down: ["b"])
+        let combined = CombinedClient(members: [member("a"), member("b")])
+
+        let result = try await combined.summaryByMember()
+
+        XCTAssertEqual(result.merged.value.queries.total, 10)
+        XCTAssertEqual(Array(result.perMember.keys), ["a"])
+    }
+
+    func testEachMemberSkipsCooldownAndExcluded() async throws {
+        let clock = FakeClock()
+        let a = member("a")
+        let combined = CombinedClient(
+            members: [a, member("b"), member("c")],
+            unavailable: ["d": "no password"], now: { clock.now })
+        serve(down: ["b"])
+        _ = try await combined.summary()
+        let bHits = hits("b")
+        serve()
+
+        let results = try await combined.eachMember(except: a.client) {
+            try await $0.summary().queries.total
+        }
+
+        XCTAssertNil(results["a"], "the excluded client is not called")
+        XCTAssertEqual(try results["c"]?.get(), 10)
+        XCTAssertEqual(hits("b"), bHits, "b is cooling down")
+        guard case .failure(MemberError.unreachable) = results["b"] else {
+            return XCTFail("b should be unreachable")
+        }
+        guard case .failure(MemberError.notSetUp("no password")) = results["d"]
+        else {
+            return XCTFail("d should be not set up")
+        }
     }
 
     func testSetBlockingNamesFailedMembers() async throws {

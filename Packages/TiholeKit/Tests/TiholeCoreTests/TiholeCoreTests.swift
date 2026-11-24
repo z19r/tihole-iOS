@@ -421,3 +421,36 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(config.theme, "gloss")
     }
 }
+
+final class InstanceRowsTests: XCTestCase {
+    func testActiveFirstThenConfigOrder() {
+        let rows = InstanceRows.build(
+            order: ["a", "b", "c"], active: "b",
+            health: [
+                "b": .success(MemberHealth(messages: 0)),
+                "c": .failure(MemberError.unreachable),
+            ],
+            gravity: ["b": 5])
+
+        XCTAssertEqual(rows.map(\.name), ["b", "a", "c"])
+        XCTAssertTrue(rows[0].isActive)
+        XCTAssertEqual(rows[0].gravity, 5)
+        XCTAssertNil(rows[1].health, "a has not been probed yet")
+        XCTAssertFalse(rows[1].isUnreachable)
+        XCTAssertTrue(rows[2].isUnreachable)
+    }
+
+    func testCommonGravityPrefersMajorityThenEarliest() {
+        func row(_ gravity: Int?, down: Bool = false) -> InstanceRow {
+            InstanceRow(
+                name: "x", isActive: false, health: nil,
+                isUnreachable: down, gravity: gravity)
+        }
+        XCTAssertEqual(
+            InstanceRows.commonGravity([row(1), row(2), row(2)]), 2)
+        XCTAssertEqual(InstanceRows.commonGravity([row(3), row(4)]), 3)
+        XCTAssertEqual(
+            InstanceRows.commonGravity([row(9, down: true), row(4)]), 4)
+        XCTAssertNil(InstanceRows.commonGravity([row(nil)]))
+    }
+}

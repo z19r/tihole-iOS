@@ -204,17 +204,17 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(add.waitForExistence(timeout: 10))
         add.tap()
         addInstance("backup", port: second.port, onboarding: false)
+        // Adding the second Pi-hole offers combined view.
+        let combine = app.alerts["Combine dashboards?"].buttons["Combine"]
+        XCTAssertTrue(
+            combine.waitForExistence(timeout: 10), "no combine prompt")
+        combine.tap()
 
         openTab("Dashboard")
-        let menu = app.buttons["instance.menu"]
-        XCTAssertTrue(menu.waitForExistence(timeout: 10))
-        let combine = element(labelContaining: "Combine all Pi-holes")
-        for _ in 0..<3 where !combine.exists {
-            menu.tap()
-            _ = combine.waitForExistence(timeout: 5)
-        }
-        XCTAssertTrue(combine.exists, "combine toggle did not appear")
-        combine.tap()
+        XCTAssertTrue(
+            element(labelContaining: "backup").waitForExistence(timeout: 30),
+            "no per-instance row for backup"
+        )
 
         XCTAssertTrue(
             element(labelContaining: "Instance All (2)").waitForExistence(

@@ -12,14 +12,19 @@ struct BlockingState: Equatable {
     var enabled = false
     /// When a temporary disable ends, if one is running.
     var resumesAt: Date?
-    /// In combined mode, the Pi-holes blocking out of those that answered.
-    /// `total` is 0 for a single instance.
+    /// In combined mode, the Pi-holes blocking out of every configured one,
+    /// unreachable ones included. `total` is 0 for a single instance.
     var on = 0
     var total = 0
 
-    /// Some combined members block and some do not.
+    /// Some reachable combined members block and some do not.
     var isPartial: Bool {
-        total > 0 && on > 0 && on < total
+        total > 0 && !enabled && on > 0
+    }
+
+    /// Every reachable member blocks, but some Pi-holes did not answer.
+    var hasUnreachable: Bool {
+        total > 0 && enabled && on < total
     }
 
     /// Seconds until blocking turns back on, or 0 when there is no timer.
@@ -236,14 +241,18 @@ final class AppModel {
         }
 
         var members: [CombinedClient.Member] = []
-        var unavailable: [String] = []
+        var unavailable: [String: String] = [:]
         for instance in config.instances {
             if instance.id == config.activeInstance?.id, let active {
                 members.append(.init(name: instance.name, client: active))
-            } else if case .success(let made) = Self.makeClient(for: instance) {
-                members.append(.init(name: instance.name, client: made))
             } else {
-                unavailable.append(instance.name)
+                switch Self.makeClient(for: instance) {
+                case .success(let made):
+                    members.append(.init(name: instance.name, client: made))
+                case .failure(let problem):
+                    unavailable[instance.name] =
+                        problem.errorDescription ?? "not set up"
+                }
             }
         }
         // Kept even with no buildable member, so the screens say which
