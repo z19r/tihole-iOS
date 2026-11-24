@@ -6,6 +6,7 @@ import TiholeCore
 /// It is the phone-sized version of the TUI's status bar.
 private struct Chrome: ViewModifier {
     @Environment(AppModel.self) private var app
+    let readsCombined: Bool
 
     @State private var showingBlocking = false
 
@@ -13,7 +14,7 @@ private struct Chrome: ViewModifier {
         content
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    InstanceMenu()
+                    InstanceMenu(readsCombined: readsCombined)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -41,39 +42,62 @@ private struct Chrome: ViewModifier {
 
 extension View {
     /// Adds the instance switcher and blocking pill to the navigation bar.
-    func chrome() -> some View {
-        modifier(Chrome())
+    /// `readsCombined` marks screens that merge every instance in combined
+    /// mode; the rest keep naming the active instance their writes go to.
+    func chrome(readsCombined: Bool = false) -> some View {
+        modifier(Chrome(readsCombined: readsCombined))
     }
 }
 
-/// Switches the active instance. Every screen reloads against the new one.
+/// Switches the active instance, and between combined and single mode.
+/// Every screen reloads against the new choice.
 struct InstanceMenu: View {
     @Environment(AppModel.self) private var app
     @Environment(\.theme) private var theme
+    let readsCombined: Bool
+
+    private var label: String {
+        if readsCombined && app.isCombined {
+            return "All (\(app.config.instances.count))"
+        }
+        return app.activeInstance?.name ?? "tihole"
+    }
 
     var body: some View {
         Menu {
-            ForEach(app.config.instances) { instance in
-                Button {
-                    app.activate(instance.id)
-                } label: {
-                    if instance.id == app.activeInstance?.id {
-                        Label(instance.name, systemImage: "checkmark")
-                    } else {
-                        Text(instance.name)
+            if app.combinedClient != nil {
+                Toggle(
+                    "Combine all Pi-holes",
+                    isOn: Binding(
+                        get: { app.config.combined },
+                        set: { app.setCombined($0) }
+                    )
+                )
+                Divider()
+            }
+            Section(app.isCombined ? "Active (changes go here)" : "") {
+                ForEach(app.config.instances) { instance in
+                    Button {
+                        app.activate(instance.id)
+                    } label: {
+                        if instance.id == app.activeInstance?.id {
+                            Label(instance.name, systemImage: "checkmark")
+                        } else {
+                            Text(instance.name)
+                        }
                     }
                 }
             }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "hexagon.fill")
-                Text(app.activeInstance?.name ?? "tihole")
+                Text(label)
                     .lineLimit(1)
             }
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(theme.accent)
         }
-        .accessibilityLabel("Instance \(app.activeInstance?.name ?? "none")")
+        .accessibilityLabel("Instance \(label)")
         .accessibilityHint("Switches the active Pi-hole")
     }
 }

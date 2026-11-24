@@ -19,6 +19,8 @@ struct QueryLogView: View {
     @State private var shown = 0
     @State private var total = 0
     @State private var load = LoadState()
+    /// Pi-holes missing from the last combined page.
+    @State private var unreachable: [String] = []
 
     @State private var searchText = ""
     @State private var filterDomain = ""
@@ -35,13 +37,15 @@ struct QueryLogView: View {
     var body: some View {
         List {
             BannerSection(
-                error: load.error ?? app.connectionProblem, note: note)
+                error: load.error ?? app.connectionProblem ?? unreachableText,
+                note: note)
 
             Section {
                 if queries.isEmpty {
                     emptyRow
                 } else {
-                    ForEach(queries) { query in
+                    // Row ids repeat across Pi-holes, so key by both.
+                    ForEach(queries, id: \.rowKey) { query in
                         Button {
                             selected = query
                         } label: {
@@ -81,7 +85,7 @@ struct QueryLogView: View {
         .screenStyle()
         .navigationTitle("Query Log")
         .navigationBarTitleDisplayMode(.inline)
-        .chrome()
+        .chrome(readsCombined: true)
         .searchable(text: $searchText, prompt: "Filter by domain")
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
@@ -124,6 +128,7 @@ struct QueryLogView: View {
             queries = []
             shown = 0
             total = 0
+            unreachable = []
             load = LoadState()
         }
         .sheet(item: $selected) { query in
@@ -143,8 +148,23 @@ struct QueryLogView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: { item in
-            Text(item.domain)
+            Text(item.domain + writeTarget)
         }
+    }
+
+    /// In combined mode, where allow and block land.
+    private var writeTarget: String {
+        guard app.isCombined, let name = app.activeInstance?.name else {
+            return ""
+        }
+        return " on \(name)"
+    }
+
+    private var unreachableText: String? {
+        unreachable.isEmpty
+            ? nil
+            : "Not reachable: \(unreachable.joined(separator: ", ")). "
+                + "Showing the rest."
     }
 
     private var pendingBinding: Binding<Bool> {
@@ -190,12 +210,21 @@ struct QueryLogView: View {
             filter.domain = filterDomain
         }
 
+        let combined = app.isCombined ? app.combinedClient : nil
+
         load.begin()
         do {
-            let page = try await client.queries(filter)
+            let result =
+                if let combined {
+                    try await combined.queries(filter)
+                } else {
+                    Combined(value: try await client.queries(filter))
+                }
             guard startedAt == app.generation else {
                 return
             }
+            let page = result.value
+            unreachable = result.failed
             queries = page.queries
             shown = page.recordsFiltered
             total = page.recordsTotal
@@ -221,7 +250,9 @@ struct QueryLogView: View {
                 groups: [0]
             )
             load.error = nil
-            showNote((type == .deny ? "Blocked " : "Allowed ") + trimmed)
+            showNote(
+                (type == .deny ? "Blocked " : "Allowed ") + trimmed
+                    + writeTarget)
         } catch {
             load.fail(error)
         }
@@ -248,6 +279,10 @@ private struct PendingClassification: Identifiable {
     let domain: String
 }
 
+extension DNSQuery {
+    fileprivate var rowKey: String { "\(instance)/\(id)" }
+}
+
 private func clientLabel(_ client: DNSQuery.Client) -> String {
     client.name.trimmingCharacters(in: .whitespaces).isEmpty
         ? client.ip : client.name
@@ -267,10 +302,14 @@ private struct QueryRow: View {
                     .foregroundStyle(theme.color(for: tone))
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Text("\(clientLabel(query.client)) · \(query.type)")
-                    .font(.caption)
-                    .foregroundStyle(theme.subtle)
-                    .lineLimit(1)
+                Text(
+                    ([query.instance, clientLabel(query.client), query.type])
+                        .filter { !$0.isEmpty }
+                        .joined(separator: " · ")
+                )
+                .font(.caption)
+                .foregroundStyle(theme.subtle)
+                .lineLimit(1)
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 3) {
@@ -322,6 +361,9 @@ private struct QueryDetailSheet: View {
                     DetailRow(
                         label: "DNSSEC", value: Format.orDash(query.dnssec))
                     DetailRow(label: "Time", value: Format.clock(query.time))
+                    if !query.instance.isEmpty {
+                        DetailRow(label: "Pi-hole", value: query.instance)
+                    }
                 }
                 .rowStyle()
 
