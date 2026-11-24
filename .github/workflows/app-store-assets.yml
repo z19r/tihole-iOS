@@ -10,6 +10,12 @@ name: App Store assets
 #
 # Pull requests that touch it only capture and frame, to prove that still
 # works. They never see the secrets and never upload.
+#
+# Capturing takes about 20 minutes of simulator time, so the framed
+# screenshots are cached under a hash of everything that can change them:
+# the app, the UI test that takes them, the framing script and this file.
+# When nothing changed, capture is skipped and the cached frames are used.
+# The upload then skips any screenshot set App Store Connect already has.
 
 on:
   workflow_dispatch:
@@ -30,8 +36,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check:
+    name: Check for changes
+    runs-on: ubuntu-latest
+    outputs:
+      key: ${{ steps.key.outputs.key }}
+      cached: ${{ steps.lookup.outputs.cache-hit }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Bump the trailing number to force a fresh capture, for example after
+      # the runner's simulator runtime changes how the app renders.
+      - id: key
+        env:
+          INPUTS: >-
+            ${{ hashFiles('Tihole/**', 'Packages/**', 'project.yml',
+            'TiholeUITests/**', 'scripts/store_frames.py',
+            'scripts/pick_simulator.py',
+            '.github/workflows/app-store-assets.yml') }}
+        run: echo "key=store-frames-xcode-27-$INPUTS-1" >> "$GITHUB_OUTPUT"
+
+      - id: lookup
+        uses: actions/cache/restore@v6
+        with:
+          path: frames
+          key: ${{ steps.key.outputs.key }}
+          lookup-only: true
+
   capture:
     name: Capture (${{ matrix.device }})
+    needs: check
+    if: needs.check.outputs.cached != 'true'
     runs-on: xcode-27
     timeout-minutes: 45
     strategy:
@@ -103,32 +138,57 @@ jobs:
 
   frames:
     name: Frame and upload
-    needs: capture
+    needs: [check, capture]
+    # Runs after a capture, or straight away when capture was skipped.
+    if: >-
+      !cancelled() && (needs.capture.result == 'success'
+      || needs.check.outputs.cached == 'true')
     runs-on: xcode-27
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v8
+      - name: Set up Python
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet pillow 'pyjwt[crypto]'
+
+      - name: Restore unchanged screenshots
+        if: needs.check.outputs.cached == 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: frames
+          key: ${{ needs.check.outputs.key }}
+          fail-on-cache-miss: true
+
+      - if: needs.check.outputs.cached != 'true'
+        uses: actions/download-artifact@v8
         with:
           name: raw-iphone
           path: raw/iphone
 
-      - uses: actions/download-artifact@v8
+      - if: needs.check.outputs.cached != 'true'
+        uses: actions/download-artifact@v8
         with:
           name: raw-ipad
           path: raw/ipad
 
       - name: Frame the screenshots
+        if: needs.check.outputs.cached != 'true'
         run: |
-          python3 -m venv "$RUNNER_TEMP/venv"
-          "$RUNNER_TEMP/venv/bin/pip" install --quiet pillow 'pyjwt[crypto]'
           for device in iphone ipad; do
             "$RUNNER_TEMP/venv/bin/python" scripts/store_frames.py \
               "$device" "raw/$device" "frames/$device"
           done
           "$RUNNER_TEMP/venv/bin/python" scripts/store_frames.py \
             header raw/iphone frames/header
+
+      - name: Cache the screenshots
+        if: needs.check.outputs.cached != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: frames
+          key: ${{ needs.check.outputs.key }}
 
       - uses: actions/upload-artifact@v7
         with:

@@ -168,10 +168,20 @@ def screenshot_set(localization_id, display_type):
     return created["data"]["id"]
 
 
-def clear(set_id):
-    existing = api(
+def existing_screenshots(set_id):
+    return api(
         "GET", f"/v1/appScreenshotSets/{set_id}/appScreenshots?limit=50"
     )["data"]
+
+
+def unchanged(existing, files):
+    """True when the set already holds exactly these files, in this order."""
+    have = [item["attributes"].get("sourceFileChecksum") for item in existing]
+    want = [hashlib.md5(path.read_bytes()).hexdigest() for path in files]
+    return have == want
+
+
+def clear(existing):
     for item in existing:
         api("DELETE", f"/v1/appScreenshots/{item['id']}")
     if existing:
@@ -194,6 +204,15 @@ def put_parts(operations, data):
             request.add_header(header["name"], header["value"])
         with urllib.request.urlopen(request, timeout=120):
             pass
+
+
+def header_placed(localization_id):
+    placed = api(
+        "GET",
+        f"/v1/appStoreVersionLocalizations/{localization_id}/placements",
+    )["data"]
+    types = {item["attributes"].get("placementType") for item in placed}
+    return set(HEADER_PLACEMENTS) <= types
 
 
 def upload_header(app_id, localization_id, path):
@@ -335,18 +354,26 @@ def main(frames):
     app_id = find_app()
     version_id = editable_version(app_id)
     localization_id = localization(version_id)
+    changed = False
     for device, display_type in DISPLAY_TYPES.items():
         files = sorted((frames / device).glob("*.png"))
         if not files:
             fail(f"no screenshots in {frames / device}")
         print(f"{device}: {len(files)} screenshots -> {display_type}")
         set_id = screenshot_set(localization_id, display_type)
-        clear(set_id)
+        existing = existing_screenshots(set_id)
+        if unchanged(existing, files):
+            print("  unchanged, skipped")
+            continue
+        changed = True
+        clear(existing)
         for path in files:
             wait_until_processed(upload(set_id, path), path.name)
             print(f"  uploaded {path.name}")
     header = frames / "header" / "header.png"
-    if header.exists():
+    # The header is cut from the same capture as the iPhone frames, so it
+    # only needs replacing when they changed or it was never placed.
+    if header.exists() and (changed or not header_placed(localization_id)):
         print("header and search results:")
         upload_header(app_id, localization_id, header)
 
