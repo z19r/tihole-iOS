@@ -265,6 +265,19 @@ final class ConfigTreeTests: XCTestCase {
 }
 
 final class AppConfigTests: XCTestCase {
+    func testConfigSavedBeforeCombinedStillLoads() throws {
+        let old = Data(#"{"theme":"nord","instances":[]}"#.utf8)
+        let config = try JSONDecoder().decode(AppConfig.self, from: old)
+        XCTAssertEqual(config.theme, "nord")
+        XCTAssertFalse(config.combined)
+
+        var on = config
+        on.combined = true
+        let roundTrip = try JSONDecoder().decode(
+            AppConfig.self, from: JSONEncoder().encode(on))
+        XCTAssertTrue(roundTrip.combined)
+    }
+
     func testValidConfig() {
         let home = InstanceConfig(name: "home", url: "https://pi.hole")
         let config = AppConfig(activeID: home.id, instances: [home])

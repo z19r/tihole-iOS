@@ -137,6 +137,9 @@ public struct Summary: Decodable, Sendable, Equatable {
     public var queries = Queries()
     public var clients = Clients()
     public var gravity = Gravity()
+    /// Set on a combined summary when the Pi-holes block different numbers
+    /// of gravity domains. Never decoded.
+    public var gravityMismatch = false
 
     public init() {}
 
@@ -411,6 +414,9 @@ public struct DNSQuery: Decodable, Sendable, Equatable, Identifiable {
     public var reply = Reply()
     public var listID: Int64?
     public var upstream = ""
+    /// The Pi-hole that answered, on combined results. Never decoded; empty
+    /// for single-instance results.
+    public var instance = ""
 
     public init() {}
 

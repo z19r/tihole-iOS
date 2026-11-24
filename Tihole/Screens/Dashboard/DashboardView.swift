@@ -27,6 +27,19 @@ func capture<T>(
     return await capture(operation)
 }
 
+/// The combined call when `combined` is set, else the single-instance one,
+/// so each dashboard fetch picks its source in one place.
+func readStats<T: Sendable>(
+    _ combined: CombinedClient?,
+    _ merged: @Sendable (CombinedClient) async throws -> Combined<T>,
+    _ single: @Sendable () async throws -> T
+) async throws -> Combined<T> {
+    if let combined {
+        return try await merged(combined)
+    }
+    return Combined(value: try await single())
+}
+
 /// Everything the dashboard shows, plus a per-panel error so one failed
 /// endpoint never blanks the rest.
 struct DashboardData {
@@ -50,6 +63,9 @@ struct DashboardData {
     var topClientsError: String?
     var systemError: String?
     var messagesError: String?
+
+    /// Pi-holes left out of the last combined refresh.
+    var unreachable: [String] = []
 
     /// True once the first refresh has completed.
     var loaded = false
@@ -104,6 +120,14 @@ struct DashboardView: View {
                 if let actionError {
                     ErrorBanner(message: actionError)
                 }
+                if !data.unreachable.isEmpty {
+                    ErrorBanner(
+                        message: """
+                            Not reachable: \
+                            \(data.unreachable.joined(separator: ", ")). \
+                            Showing the rest.
+                            """)
+                }
 
                 if !data.loaded && app.client != nil {
                     ProgressView("Loading dashboard…")
@@ -136,7 +160,7 @@ struct DashboardView: View {
         .screenStyle()
         .navigationTitle("Dashboard")
         .navigationBarTitleDisplayMode(.inline)
-        .chrome()
+        .chrome(readsCombined: true)
         .refreshable {
             await refresh(force: true)
         }
@@ -188,7 +212,8 @@ struct DashboardView: View {
                     "Active Clients",
                     value: Format.count(data.summary.clients.active))
                 statTile(
-                    "Gravity Domains",
+                    data.summary.gravityMismatch
+                        ? "Gravity Domains ≠" : "Gravity Domains",
                     value: Format.count(
                         data.summary.gravity.domainsBeingBlocked))
             }
@@ -237,6 +262,13 @@ struct DashboardView: View {
 
     private var health: some View {
         VStack(spacing: 10) {
+            // System stats are per machine, so they stay on the active one.
+            if app.isCombined, let name = app.activeInstance?.name {
+                Text("System · \(name)")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(theme.subtle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
             if let error = data.systemError, data.system.nprocs == 0 {
                 ErrorBanner(message: "System unavailable: \(error)")
             } else {
@@ -498,19 +530,51 @@ struct DashboardView: View {
         let count = topCount
         let slow =
             force || Date().timeIntervalSince(slowFetchedAt) >= slowInterval
+        let combined = app.isCombined ? app.combinedClient : nil
 
-        async let summary = capture { try await client.summary() }
-        async let history = capture(if: slow) { try await client.history() }
-        async let types = capture { try await client.queryTypes() }
-        async let upstreams = capture { try await client.upstreams() }
+        async let summary = capture {
+            try await readStats(combined, { try await $0.summary() }) {
+                try await client.summary()
+            }
+        }
+        async let history = capture(if: slow) {
+            try await readStats(combined, { try await $0.history() }) {
+                try await client.history()
+            }
+        }
+        async let types = capture {
+            try await readStats(combined, { try await $0.queryTypes() }) {
+                try await client.queryTypes()
+            }
+        }
+        async let upstreams = capture {
+            try await readStats(combined, { try await $0.upstreams() }) {
+                try await client.upstreams()
+            }
+        }
         async let topDomains = capture {
-            try await client.topDomains(blocked: false, count: count)
+            try await readStats(
+                combined,
+                { try await $0.topDomains(blocked: false, count: count) }
+            ) {
+                try await client.topDomains(blocked: false, count: count)
+            }
         }
         async let topBlocked = capture {
-            try await client.topDomains(blocked: true, count: count)
+            try await readStats(
+                combined,
+                { try await $0.topDomains(blocked: true, count: count) }
+            ) {
+                try await client.topDomains(blocked: true, count: count)
+            }
         }
         async let topClients = capture {
-            try await client.topClients(blocked: false, count: count)
+            try await readStats(
+                combined,
+                { try await $0.topClients(blocked: false, count: count) }
+            ) {
+                try await client.topClients(blocked: false, count: count)
+            }
         }
         async let system = capture { try await client.system() }
         async let sensors = capture(if: slow) { try await client.sensors() }
@@ -533,26 +597,41 @@ struct DashboardView: View {
         }
 
         var next = data
-        merge(summaryResult, into: &next.summary, error: &next.summaryError)
-        merge(historyResult, into: &next.history, error: &next.historyError)
-        merge(typesResult, into: &next.types, error: &next.typesError)
+        var unreachable = Set<String>()
         merge(
-            upstreamsResult, into: &next.upstreams, error: &next.upstreamsError)
+            summaryResult, into: &next.summary, unreachable: &unreachable,
+            error: &next.summaryError)
+        merge(
+            historyResult, into: &next.history, unreachable: &unreachable,
+            error: &next.historyError)
+        merge(
+            typesResult, into: &next.types, unreachable: &unreachable,
+            error: &next.typesError)
+        merge(
+            upstreamsResult, into: &next.upstreams, unreachable: &unreachable,
+            error: &next.upstreamsError)
         merge(
             topDomainsResult, into: &next.topDomains,
-            error: &next.topDomainsError)
+            unreachable: &unreachable, error: &next.topDomainsError)
         merge(
             topBlockedResult, into: &next.topBlocked,
-            error: &next.topBlockedError)
+            unreachable: &unreachable, error: &next.topBlockedError)
         merge(
             topClientsResult, into: &next.topClients,
-            error: &next.topClientsError)
+            unreachable: &unreachable, error: &next.topClientsError)
         merge(systemResult, into: &next.system, error: &next.systemError)
         merge(messagesResult, into: &next.messages, error: &next.messagesError)
         // A host without sensors is normal, so a sensors failure is not shown.
         if case .success(let fresh) = sensorsResult {
             next.sensors = fresh
         }
+        next.unreachable =
+            combined.map { client in
+                // Keep member order, not set order.
+                (client.members.map(\.name) + client.unavailable).filter {
+                    unreachable.contains($0)
+                }
+            } ?? []
         next.loaded = true
         data = next
         if slow {
@@ -560,6 +639,18 @@ struct DashboardView: View {
         }
 
         offerHotLimitIfNeeded()
+    }
+
+    /// Like `merge`, for a possibly combined result: also collects the
+    /// Pi-holes it is missing.
+    private func merge<T: Sendable>(
+        _ result: Result<Combined<T>, Error>, into value: inout T,
+        unreachable: inout Set<String>, error: inout String?
+    ) {
+        if case .success(let fresh) = result {
+            unreachable.formUnion(fresh.failed)
+        }
+        merge(result.map(\.value), into: &value, error: &error)
     }
 
     private func merge<T>(

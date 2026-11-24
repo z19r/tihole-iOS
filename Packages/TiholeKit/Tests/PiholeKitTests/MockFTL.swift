@@ -6,6 +6,7 @@ import XCTest
 /// A request as the mock FTL server saw it.
 struct RecordedRequest {
     let method: String
+    let host: String
     /// Path exactly as sent on the wire, percent-encoding intact.
     let rawPath: String
     /// Query string exactly as sent, or "" when absent.
@@ -95,6 +96,7 @@ final class MockURLProtocol: URLProtocol {
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         let recorded = RecordedRequest(
             method: request.httpMethod ?? "GET",
+            host: url.host ?? "",
             rawPath: components?.percentEncodedPath ?? url.path,
             rawQuery: components?.percentEncodedQuery ?? "",
             headers: request.allHTTPHeaderFields ?? [:],
