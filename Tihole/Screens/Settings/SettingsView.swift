@@ -15,6 +15,9 @@ struct SettingsView: View {
     @State private var editor: InstanceEditorItem?
     @State private var deleting: InstanceConfig?
     @State private var versionTaps = 0
+    /// Set when the second Pi-hole is added; asked once the sheet closes.
+    @State private var offerCombine = false
+    @State private var showingCombinePrompt = false
 
     private var appVersion: String {
         let version =
@@ -133,7 +136,17 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .chrome()
-        .sheet(item: $editor) { item in
+        .onChange(of: app.config.instances.count) { old, new in
+            offerCombine = old == 1 && new == 2 && !app.config.combined
+        }
+        .sheet(
+            item: $editor,
+            onDismiss: {
+                // An alert presented while the sheet is closing is dropped.
+                showingCombinePrompt = offerCombine
+                offerCombine = false
+            }
+        ) { item in
             NavigationStack {
                 InstanceForm(existing: item.existing) {
                     editor = nil
@@ -150,6 +163,19 @@ struct SettingsView: View {
                     }
                 }
             }
+        }
+        .alert("Combine dashboards?", isPresented: $showingCombinePrompt) {
+            Button("Combine") {
+                app.setCombined(true)
+            }
+            Button("Not now", role: .cancel) {}
+        } message: {
+            Text(
+                """
+                Show stats from both Pi-holes together by default? You can \
+                switch anytime from the instance menu.
+                """
+            )
         }
         .confirmationDialog(
             "Delete instance?",

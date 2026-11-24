@@ -40,7 +40,9 @@ private struct Chrome: ViewModifier {
         let base =
             state.isPartial
             ? "Blocking is partial"
-            : state.enabled ? "Blocking is on" : "Blocking is off"
+            : state.hasUnreachable
+                ? "Blocking is on where reachable"
+                : state.enabled ? "Blocking is on" : "Blocking is off"
         if state.total > 0 {
             return "\(base), \(state.on) of \(state.total) Pi-holes blocking"
         }
@@ -131,6 +133,11 @@ struct BlockingPill: View {
         } else if state.isPartial {
             pill(
                 "Partial" + counts, icon: "shield.lefthalf.filled",
+                foreground: theme.surface, background: theme.warn)
+        } else if state.hasUnreachable {
+            // On wherever it answered; the rest are unreachable, not off.
+            pill(
+                "On" + counts + " ⚠", icon: "shield.fill",
                 foreground: theme.surface, background: theme.warn)
         } else if state.enabled {
             pill(
@@ -264,6 +271,16 @@ struct BlockingSheet: View {
                 to turn it on everywhere.
                 """,
                 systemImage: "shield.lefthalf.filled"
+            )
+            .font(.headline)
+            .foregroundStyle(theme.warn)
+        } else if state.hasUnreachable {
+            Label(
+                """
+                Blocking on \(state.on) of \(state.total) Pi-holes. The rest \
+                are unreachable.
+                """,
+                systemImage: "shield.fill"
             )
             .font(.headline)
             .foregroundStyle(theme.warn)

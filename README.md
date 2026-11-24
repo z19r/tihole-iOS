@@ -39,8 +39,14 @@ still show. Allow/block on a domain and every other change still go to the
 active instance. The one exception is **blocking on/off**: disabling one
 redundant Pi-hole does not disable blocking on the network, so in combined mode
 the pill shows how many Pi-holes block (`On 2/2`, `Partial 1/2`, `Off 0/2`) and
-its actions change every Pi-hole. A Pi-hole that takes over 2 seconds to answer
-counts as unreachable, and reads skip it for 30 seconds before trying again.
+its actions change every Pi-hole. The count includes unreachable Pi-holes, so
+with one down and the rest on the pill reads `On 1/2 ⚠` in the warning colour.
+CPU, memory, temperature, load and diagnostics are per machine, so in combined
+mode the Dashboard shows one row per Pi-hole for them instead (the active one
+first, up to four), with a gravity count that differs from the rest in the
+warning colour. Adding the second instance asks whether to combine. A Pi-hole
+that takes over 2 seconds to answer counts as unreachable, and reads skip it
+for 30 seconds before trying again.
 
 ### What is different from the TUI
 
@@ -144,7 +150,7 @@ the host.
   status. Screens key their loading tasks on `AppModel.generation`, so
   switching instances reloads everything.
 - `CombinedClient` fans the dashboard and query-log reads out to every
-  instance and merges the results (the TUI's `pihole.Group`). The merge rules
+  instance and merges the results (the TUI's `pihole.Fleet`). The merge rules
   are pure functions in `Merge`, tested on their own.
 - Screens load in `.task`, which SwiftUI cancels when the view goes away. That
   is the equivalent of the TUI's `Focus()` / `Blur()`.

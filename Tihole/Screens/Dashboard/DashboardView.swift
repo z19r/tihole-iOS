@@ -66,6 +66,10 @@ struct DashboardData {
 
     /// Pi-holes left out of the last combined refresh.
     var unreachable: [String] = []
+    /// Combined mode: each other Pi-hole's machine stats, from the slow
+    /// probe, and each Pi-hole's gravity, from the summary fetch.
+    var memberHealth: [String: Result<MemberHealth, Error>] = [:]
+    var memberGravity: [String: Int] = [:]
 
     /// True once the first refresh has completed.
     var loaded = false
@@ -260,33 +264,157 @@ struct DashboardView: View {
 
     // MARK: - Health
 
+    @ViewBuilder
     private var health: some View {
-        VStack(spacing: 10) {
-            // System stats are per machine, so they stay on the active one.
-            if app.isCombined, let name = app.activeInstance?.name {
-                Text("System · \(name)")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(theme.subtle)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            if let error = data.systemError, data.system.nprocs == 0 {
-                ErrorBanner(message: "System unavailable: \(error)")
-            } else {
-                LazyVGrid(columns: columns, spacing: 10) {
-                    gaugeTile(
-                        "CPU",
-                        value: Format.percent(data.system.cpuPercent),
-                        fraction: data.system.cpuPercent / 100
-                    )
-                    gaugeTile(
-                        "Memory",
-                        value: Format.memory(data.system),
-                        fraction: data.system.memUsedPercent / 100
-                    )
-                    temperatureTile
-                    loadTile
+        if app.isCombined {
+            instanceRows
+        } else {
+            VStack(spacing: 10) {
+                if let error = data.systemError, data.system.nprocs == 0 {
+                    ErrorBanner(message: "System unavailable: \(error)")
+                } else {
+                    LazyVGrid(columns: columns, spacing: 10) {
+                        gaugeTile(
+                            "CPU",
+                            value: Format.percent(data.system.cpuPercent),
+                            fraction: data.system.cpuPercent / 100
+                        )
+                        gaugeTile(
+                            "Memory",
+                            value: Format.memory(data.system),
+                            fraction: data.system.memUsedPercent / 100
+                        )
+                        temperatureTile
+                        loadTile
+                    }
                 }
                 diagnosticsTile
+            }
+        }
+    }
+
+    // MARK: - Per-instance rows
+
+    /// Every Pi-hole, active first: machine stats cannot be combined.
+    private var rows: [InstanceRow] {
+        var health = data.memberHealth
+        // A misconfigured active Pi-hole fails fetchSystem, so it shows as
+        // unreachable here too.
+        if let active = app.activeInstance?.name {
+            health[active] =
+                data.systemError != nil && data.system.nprocs == 0
+                ? .failure(MemberError.unreachable)
+                : .success(
+                    MemberHealth(
+                        system: data.system, sensors: data.sensors,
+                        messages: data.messagesError == nil
+                            ? data.messages.count : nil))
+        }
+        return InstanceRows.build(
+            order: app.config.instances.map(\.name),
+            active: app.activeInstance?.name, health: health,
+            gravity: data.memberGravity)
+    }
+
+    private var instanceRows: some View {
+        let all = rows
+        let common = InstanceRows.commonGravity(all)
+        return Card("Pi-holes") {
+            ForEach(all.prefix(InstanceRows.limit)) { row in
+                instanceRow(row, common: common)
+            }
+            if all.count > InstanceRows.limit {
+                Text("and \(all.count - InstanceRows.limit) more…")
+                    .font(.caption)
+                    .foregroundStyle(theme.subtle)
+            }
+        }
+    }
+
+    private func instanceRow(_ row: InstanceRow, common: Int?) -> some View {
+        let marker = row.isActive ? "▸" : row.isUnreachable ? "○" : "●"
+        let gravityDiffers =
+            row.gravity != nil && common != nil && row.gravity != common
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(marker)
+                    .foregroundStyle(row.isActive ? theme.accent : theme.subtle)
+                    .accessibilityHidden(true)
+                Text(row.name)
+                    .font(.subheadline.weight(row.isActive ? .bold : .regular))
+                    .accessibilityLabel(
+                        row.isActive ? "\(row.name), active" : row.name
+                    )
+                    .foregroundStyle(
+                        row.isUnreachable ? theme.subtle : theme.text
+                    )
+                    .lineLimit(1)
+                Spacer()
+                healthLabel(row)
+            }
+            HStack {
+                Text(machineStats(row))
+                    .foregroundStyle(theme.subtle)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Spacer()
+                if let gravity = row.gravity {
+                    Text(Format.count(gravity))
+                        .foregroundStyle(
+                            gravityDiffers ? theme.warn : theme.subtle
+                        )
+                        .accessibilityLabel(
+                            "Gravity \(Format.count(gravity))"
+                                + (gravityDiffers ? ", differs" : ""))
+                }
+            }
+            .font(.caption.monospacedDigit())
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// "CPU 12% · Mem 41% · 48°C · Load 3% · 4d 2h", "unreachable", or "…"
+    /// before the first probe.
+    private func machineStats(_ row: InstanceRow) -> String {
+        if row.isUnreachable {
+            return "— · — · — · unreachable"
+        }
+        guard let health = row.health else {
+            return "…"
+        }
+        let sensors = health.sensors
+        let temp =
+            sensors.hasTemp
+            ? String(
+                format: "%.0f°%@", sensors.cpuTemp,
+                sensors.unit.isEmpty ? "C" : sensors.unit)
+            : "n/a"
+        return [
+            "CPU " + Format.percent(health.system.cpuPercent),
+            "Mem " + Format.percent(health.system.memUsedPercent),
+            temp,
+            "Load " + Format.percent(health.system.load1Percent),
+            Format.uptime(seconds: health.system.uptime),
+        ].joined(separator: " · ")
+    }
+
+    @ViewBuilder
+    private func healthLabel(_ row: InstanceRow) -> some View {
+        if let health = row.health {
+            if let count = health.messages {
+                if count == 0 {
+                    Label("Clear", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(theme.allow)
+                } else {
+                    Label(
+                        Format.issues(count),
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .foregroundStyle(theme.warn)
+                }
+            } else {
+                Label("Unknown", systemImage: "questionmark.circle")
+                    .foregroundStyle(theme.warn)
             }
         }
     }
@@ -542,10 +670,19 @@ struct DashboardView: View {
             force || Date().timeIntervalSince(slowFetchedAt) >= slowInterval
         let combined = app.combinedClient
 
+        // In combined mode one summary request per Pi-hole also yields each
+        // one's gravity for the per-instance rows.
         async let summary = capture {
-            try await readStats(combined, { try await $0.summary() }) {
-                try await client().summary()
+            if let combined {
+                let both = try await combined.summaryByMember()
+                return (
+                    both.merged,
+                    both.perMember.mapValues(\.gravity.domainsBeingBlocked)
+                )
             }
+            return (
+                Combined(value: try await client().summary()), [String: Int]()
+            )
         }
         async let history = capture(if: slow) {
             try await readStats(combined, { try await $0.history() }) {
@@ -589,6 +726,22 @@ struct DashboardView: View {
         async let system = capture { try await client().system() }
         async let sensors = capture(if: slow) { try await client().sensors() }
         async let messages = capture(if: slow) { try await client().messages() }
+        // The other Pi-holes' machine stats; the active row reuses the
+        // fetches above.
+        async let probes = capture(if: slow && combined != nil) {
+            guard let combined else {
+                throw CancellationError()
+            }
+            return try await combined.eachMember(except: active) { member in
+                async let system = member.system()
+                async let sensors = try? member.sensors()
+                async let messages = try? member.messages()
+                return MemberHealth(
+                    system: try await system,
+                    sensors: await sensors ?? Sensors(),
+                    messages: await messages?.count)
+            }
+        }
 
         let summaryResult = await summary
         let historyResult = await history
@@ -600,6 +753,7 @@ struct DashboardView: View {
         let systemResult = await system
         let sensorsResult = await sensors
         let messagesResult = await messages
+        let probesResult = await probes
 
         // The instance was switched, or the screen was left, mid-fetch.
         guard startedAt == app.generation, !Task.isCancelled else {
@@ -609,8 +763,14 @@ struct DashboardView: View {
         var next = data
         var unreachable = Set<String>()
         merge(
-            summaryResult, into: &next.summary, unreachable: &unreachable,
-            error: &next.summaryError)
+            summaryResult.map { $0.0 }, into: &next.summary,
+            unreachable: &unreachable, error: &next.summaryError)
+        if case .success(let (_, gravity)) = summaryResult {
+            next.memberGravity = gravity
+        }
+        if case .success(let fresh) = probesResult {
+            next.memberHealth = fresh
+        }
         merge(
             historyResult, into: &next.history, unreachable: &unreachable,
             error: &next.historyError)
