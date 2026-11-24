@@ -73,7 +73,7 @@ struct InstanceMenu: View {
 
     var body: some View {
         Menu {
-            if app.combinedClient != nil {
+            if app.canCombine {
                 Toggle(
                     "Combine all Pi-holes",
                     isOn: Binding(
@@ -106,6 +106,7 @@ struct InstanceMenu: View {
             .foregroundStyle(theme.accent)
         }
         .accessibilityLabel("Instance \(label)")
+        .accessibilityIdentifier("instance.menu")
         .accessibilityHint("Switches the active Pi-hole")
     }
 }

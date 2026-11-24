@@ -186,6 +186,65 @@ final class SmokeTests: XCTestCase {
         snap("14-dashboard-final")
     }
 
+    /// Two Pi-holes read as one: the toolbar says so, the pill counts both,
+    /// and a blocking change reaches both.
+    func testCombinedMode() throws {
+        let second = try MockPihole()
+        try second.start()
+        defer { second.stop() }
+
+        addInstance("home", port: server.port, onboarding: true)
+        XCTAssertTrue(
+            element(labelContaining: "Total Queries").waitForExistence(
+                timeout: 30),
+            "dashboard did not load"
+        )
+        openTab("Settings")
+        let add = element(labelBeginningWith: "Add instance")
+        XCTAssertTrue(add.waitForExistence(timeout: 10))
+        add.tap()
+        addInstance("backup", port: second.port, onboarding: false)
+
+        openTab("Dashboard")
+        let menu = app.buttons["instance.menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 10))
+        let combine = element(labelContaining: "Combine all Pi-holes")
+        for _ in 0..<3 where !combine.exists {
+            menu.tap()
+            _ = combine.waitForExistence(timeout: 5)
+        }
+        XCTAssertTrue(combine.exists, "combine toggle did not appear")
+        combine.tap()
+
+        XCTAssertTrue(
+            element(labelContaining: "Instance All (2)").waitForExistence(
+                timeout: 15),
+            "toolbar does not show combined mode"
+        )
+        let pill = app.buttons["blocking.pill"]
+        let bothOn = expectation(
+            for: NSPredicate(
+                format: "label CONTAINS %@", "2 of 2 Pi-holes blocking"),
+            evaluatedWith: pill
+        )
+        wait(for: [bothOn], timeout: 20)
+        snap("15-combined")
+
+        let fiveMinutes = app.buttons["Disable for 5 minutes"]
+        for _ in 0..<3 where !fiveMinutes.exists {
+            pill.tap()
+            _ = fiveMinutes.waitForExistence(timeout: 5)
+        }
+        XCTAssertTrue(fiveMinutes.exists, "blocking sheet did not open")
+        fiveMinutes.tap()
+        let bothOff = expectation(
+            for: NSPredicate(
+                format: "label CONTAINS %@", "0 of 2 Pi-holes blocking"),
+            evaluatedWith: pill
+        )
+        wait(for: [bothOff], timeout: 20)
+    }
+
     /// The onboarding demo button starts the in-app demo Pi-hole.
     func testDemo() throws {
         let demo = app.buttons["onboarding.demo"]
@@ -199,6 +258,25 @@ final class SmokeTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    /// Fills in and saves the instance form, already on screen.
+    private func addInstance(_ label: String, port: UInt16, onboarding: Bool) {
+        let name = app.textFields["instance.name"]
+        XCTAssertTrue(
+            name.waitForExistence(timeout: 30), "instance form did not appear")
+        type(label, into: name)
+        type("http://127.0.0.1:\(port)", into: app.textFields["instance.url"])
+        type(
+            MockPihole.password + "\n",
+            into: app.textFields["instance.password"])
+        let save = app.buttons["instance.save"]
+        scrollUntilHittable(save)
+        save.tap()
+        if !onboarding {
+            XCTAssertTrue(
+                save.waitForNonExistence(timeout: 15), "instance did not save")
+        }
+    }
 
     /// Taps a tab. iPadOS draws its tab bar at the top, where it may not
     /// show up as a tab bar, so fall back to any button with that name.

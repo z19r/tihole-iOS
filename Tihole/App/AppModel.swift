@@ -68,8 +68,9 @@ final class AppModel {
     /// (see `connectionProblem`).
     private(set) var client: PiholeClient?
 
-    /// Every instance read as one, or nil with fewer than two instances. Its
-    /// member for the active instance is `client`, so the session is shared.
+    /// Every instance read as one, or nil unless combined mode is on with two
+    /// or more instances. Its member for the active instance is `client`, so
+    /// the session is shared.
     private(set) var combinedClient: CombinedClient?
 
     /// Bumps whenever `client` is replaced. Screens key their loading tasks on
@@ -144,7 +145,29 @@ final class AppModel {
 
     /// True when the dashboard and query log should merge every instance.
     var isCombined: Bool {
-        config.combined && combinedClient != nil
+        combinedClient != nil
+    }
+
+    /// Combined mode needs at least two instances to mean anything.
+    var canCombine: Bool {
+        config.instances.count > 1
+    }
+
+    /// True when the read views have something to read: the active client,
+    /// or, in combined mode, any reachable Pi-hole.
+    var canRead: Bool {
+        client != nil || isCombined
+    }
+
+    /// The active client, or the reason there is none. Combined screens use
+    /// it for the per-machine panels so those fail alone.
+    func requireClient() throws -> PiholeClient {
+        guard let client else {
+            throw ConfigProblem(messages: [
+                connectionProblem ?? "No active instance"
+            ])
+        }
+        return client
     }
 
     /// Switches the read views between every instance and the active one,
@@ -157,6 +180,7 @@ final class AppModel {
         ConfigStore.save(config)
         // The pill now speaks for a different set of Pi-holes.
         blocking = BlockingState()
+        rebuildCombined()
         generation += 1
     }
 
@@ -205,7 +229,9 @@ final class AppModel {
                 }
             }
         }
-        guard config.instances.count > 1 else {
+        // Off by default, so single mode never holds idle sessions (or starts
+        // the demo server) for the other instances.
+        guard config.combined, canCombine else {
             return
         }
 
@@ -220,10 +246,10 @@ final class AppModel {
                 unavailable.append(instance.name)
             }
         }
-        if !members.isEmpty {
-            combinedClient = CombinedClient(
-                members: members, unavailable: unavailable)
-        }
+        // Kept even with no buildable member, so the screens say which
+        // Pi-holes are unreachable instead of quietly going single.
+        combinedClient = CombinedClient(
+            members: members, unavailable: unavailable)
     }
 
     /// A client for `instance`, or why one cannot be made.
@@ -272,6 +298,8 @@ final class AppModel {
         let wasCombined = isCombined
         rebuildCombined()
         if wasCombined || isCombined {
+            // The pill's counts may cover a different set of Pi-holes now.
+            blocking = BlockingState()
             generation += 1
         }
     }
@@ -380,7 +408,7 @@ final class AppModel {
 
     /// Blocking from every Pi-hole in combined mode, else the active one.
     private func fetchBlocking() async throws -> BlockingStatus? {
-        if isCombined, let combinedClient {
+        if let combinedClient {
             return try await combinedClient.blocking().value
         }
         return try await client?.blocking()
@@ -404,7 +432,7 @@ final class AppModel {
     /// leaves the network blocked through the others.
     func setBlocking(enabled: Bool, seconds: Double?) async throws {
         let timer = enabled ? nil : seconds
-        if isCombined, let combinedClient {
+        if let combinedClient {
             do {
                 try await combinedClient.setBlocking(enabled, timer: timer)
             } catch {
