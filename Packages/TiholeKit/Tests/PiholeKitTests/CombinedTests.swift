@@ -218,21 +218,14 @@ final class CombinedClientTests: MockFTLTestCase {
                 session: URLSession(configuration: configuration)))
     }
 
-    /// Answers every member; those in `down` refuse the connection, and
-    /// those in `slow` stall past the member deadline.
-    private func serve(
-        down: Set<String> = [], slow: Set<String> = [],
-        failPOST: Set<String> = []
-    ) {
+    /// Answers every member; those in `down` refuse the connection.
+    private func serve(down: Set<String> = [], failPOST: Set<String> = []) {
         let log = self.log
         MockURLProtocol.handler = { request in
             log.append(request)
             let name = String(request.host.prefix { $0 != "." })
             if down.contains(name) {
                 throw URLError(.cannotConnectToHost)
-            }
-            if slow.contains(name) {
-                Thread.sleep(forTimeInterval: 3)
             }
             if request.rawPath == "/api/auth" {
                 return .authOK("S")
@@ -276,14 +269,22 @@ final class CombinedClientTests: MockFTLTestCase {
     }
 
     func testSlowMemberMissesDeadline() async throws {
-        serve(slow: ["b"])
-        let combined = CombinedClient(members: [member("a"), member("b")])
+        serve()
+        let slow = member("b")
+        let combined = CombinedClient(members: [member("a"), slow])
 
         let started = Date()
-        let result = try await combined.summary()
+        // Sleeps past the deadline without blocking the thread the mock
+        // protocol answers every member's requests on.
+        let result = try await combined.fanOut { client in
+            if client === slow.client {
+                try await Task.sleep(for: .seconds(3))
+            }
+            return try await client.summary()
+        }
 
         XCTAssertLessThan(Date().timeIntervalSince(started), 2.8)
-        XCTAssertEqual(result.value.queries.total, 10)
+        XCTAssertEqual(result.results.map { $0.value.queries.total }, [10])
         XCTAssertEqual(result.failed, ["b"])
     }
 
