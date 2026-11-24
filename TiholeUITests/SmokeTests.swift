@@ -211,10 +211,16 @@ final class SmokeTests: XCTestCase {
         combine.tap()
 
         openTab("Dashboard")
+        let backupRow = app.descendants(matching: .any)
+            .matching(
+                NSPredicate(
+                    format: "label CONTAINS %@ AND label CONTAINS %@",
+                    "backup", "CPU ")
+            )
+            .firstMatch
         XCTAssertTrue(
-            element(labelContaining: "backup").waitForExistence(timeout: 30),
-            "no per-instance row for backup"
-        )
+            backupRow.waitForExistence(timeout: 30),
+            "no per-instance row for backup")
 
         XCTAssertTrue(
             element(labelContaining: "Instance All (2)").waitForExistence(

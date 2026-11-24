@@ -298,7 +298,9 @@ struct DashboardView: View {
     /// Every Pi-hole, active first: machine stats cannot be combined.
     private var rows: [InstanceRow] {
         var health = data.memberHealth
-        if let active = app.activeInstance?.name, app.client != nil {
+        // A misconfigured active Pi-hole fails fetchSystem, so it shows as
+        // unreachable here too.
+        if let active = app.activeInstance?.name {
             health[active] =
                 data.systemError != nil && data.system.nprocs == 0
                 ? .failure(MemberError.unreachable)
@@ -368,7 +370,6 @@ struct DashboardView: View {
             }
             .font(.caption.monospacedDigit())
         }
-        .font(.caption)
         .accessibilityElement(children: .combine)
     }
 
