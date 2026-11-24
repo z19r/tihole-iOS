@@ -12,6 +12,15 @@ struct BlockingState: Equatable {
     var enabled = false
     /// When a temporary disable ends, if one is running.
     var resumesAt: Date?
+    /// In combined mode, the Pi-holes blocking out of those that answered.
+    /// `total` is 0 for a single instance.
+    var on = 0
+    var total = 0
+
+    /// Some combined members block and some do not.
+    var isPartial: Bool {
+        total > 0 && on > 0 && on < total
+    }
 
     /// Seconds until blocking turns back on, or 0 when there is no timer.
     func remainingSeconds(at now: Date = Date()) -> Int {
@@ -146,6 +155,8 @@ final class AppModel {
         }
         config.combined = on
         ConfigStore.save(config)
+        // The pill now speaks for a different set of Pi-holes.
+        blocking = BlockingState()
         generation += 1
     }
 
@@ -356,19 +367,29 @@ final class AppModel {
     /// Fetches the blocking status for the toolbar pill. Failures leave the
     /// last known state in place; the screens report connection errors.
     func refreshBlocking() async {
-        guard let client, isForeground else {
+        guard isForeground else {
             return
         }
         let startedAt = generation
-        guard let status = try? await client.blocking(), startedAt == generation
+        guard let status = try? await fetchBlocking(), startedAt == generation
         else {
             return
         }
         applyBlocking(status)
     }
 
+    /// Blocking from every Pi-hole in combined mode, else the active one.
+    private func fetchBlocking() async throws -> BlockingStatus? {
+        if isCombined, let combinedClient {
+            return try await combinedClient.blocking().value
+        }
+        return try await client?.blocking()
+    }
+
     private func applyBlocking(_ status: BlockingStatus) {
-        var next = BlockingState(known: true, enabled: status.isBlocking)
+        var next = BlockingState(
+            known: true, enabled: status.isBlocking, on: status.on,
+            total: status.total)
         if !status.isBlocking, let timer = status.timer, timer > 0 {
             next.resumesAt = Date().addingTimeInterval(timer)
         }
@@ -379,13 +400,27 @@ final class AppModel {
     }
 
     /// Turns blocking on, or off for `seconds` (nil means until re-enabled).
+    /// In combined mode this changes every Pi-hole, since disabling one
+    /// leaves the network blocked through the others.
     func setBlocking(enabled: Bool, seconds: Double?) async throws {
+        let timer = enabled ? nil : seconds
+        if isCombined, let combinedClient {
+            do {
+                try await combinedClient.setBlocking(enabled, timer: timer)
+            } catch {
+                // Show the real per-member count, then the failure.
+                await refreshBlocking()
+                throw error
+            }
+            await refreshBlocking()
+            return
+        }
         guard let client else {
             throw ConfigProblem(messages: [
                 connectionProblem ?? "No active instance"
             ])
         }
-        try await client.setBlocking(enabled, timer: enabled ? nil : seconds)
+        try await client.setBlocking(enabled, timer: timer)
         applyBlocking(try await client.blocking())
     }
 
