@@ -60,11 +60,6 @@ public final class CombinedClient: @unchecked Sendable {
         self.now = now
     }
 
-    /// Number of configured instances, reachable or not.
-    public var count: Int {
-        members.count + unavailable.count
-    }
-
     private func coolingDown(_ name: String) -> Bool {
         lock.withLock {
             guard let since = down[name] else {
