@@ -35,7 +35,12 @@ TUI): the Dashboard and Query Log then merge every instance as one network.
 Counts add up, the blocked percentage is recomputed from the totals, and
 overlapping figures (active clients, unique domains, gravity) take the largest
 value instead of a sum. An unreachable Pi-hole is named in a banner and the rest
-still show. Allow, block and every other change still go to the active instance.
+still show. Allow/block on a domain and every other change still go to the
+active instance. The one exception is **blocking on/off**: disabling one
+redundant Pi-hole does not disable blocking on the network, so in combined mode
+the pill shows how many Pi-holes block (`On 2/2`, `Partial 1/2`, `Off 0/2`) and
+its actions change every Pi-hole. A Pi-hole that takes over 2 seconds to answer
+counts as unreachable, and reads skip it for 30 seconds before trying again.
 
 ### What is different from the TUI
 

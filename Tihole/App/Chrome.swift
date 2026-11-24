@@ -33,10 +33,18 @@ private struct Chrome: ViewModifier {
     }
 
     private var blockingAccessibilityLabel: String {
-        if !app.blocking.known {
+        let state = app.blocking
+        if !state.known {
             return "Blocking status unknown"
         }
-        return app.blocking.enabled ? "Blocking is on" : "Blocking is off"
+        let base =
+            state.isPartial
+            ? "Blocking is partial"
+            : state.enabled ? "Blocking is on" : "Blocking is off"
+        if state.total > 0 {
+            return "\(base), \(state.on) of \(state.total) Pi-holes blocking"
+        }
+        return base
     }
 }
 
@@ -108,19 +116,29 @@ struct BlockingPill: View {
     @Environment(\.theme) private var theme
     let state: BlockingState
 
+    /// " 1/2" in combined mode, so the pill never reads a bare "On" while
+    /// any Pi-hole is off.
+    private var counts: String {
+        state.total > 0 ? " \(state.on)/\(state.total)" : ""
+    }
+
     var body: some View {
         if !state.known {
             pill(
                 "Blocking", icon: "circle.dotted", foreground: theme.subtle,
                 background: theme.border)
+        } else if state.isPartial {
+            pill(
+                "Partial" + counts, icon: "shield.lefthalf.filled",
+                foreground: theme.surface, background: theme.warn)
         } else if state.enabled {
             pill(
-                "On", icon: "shield.fill", foreground: theme.surface,
+                "On" + counts, icon: "shield.fill", foreground: theme.surface,
                 background: theme.allow)
         } else if state.resumesAt != nil {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 pill(
-                    "Off "
+                    "Off" + counts + " "
                         + Format.countdown(
                             seconds: state.remainingSeconds(at: context.date)),
                     icon: "exclamationmark.triangle.fill",
@@ -130,7 +148,7 @@ struct BlockingPill: View {
             }
         } else {
             pill(
-                "Off", icon: "exclamationmark.triangle.fill",
+                "Off" + counts, icon: "exclamationmark.triangle.fill",
                 foreground: theme.surface, background: theme.block)
         }
     }
@@ -212,7 +230,11 @@ struct BlockingSheet: View {
                 .rowStyle()
             }
             .screenStyle()
-            .navigationTitle("Blocking")
+            .navigationTitle(
+                app.isCombined
+                    ? "Blocking · All (\(app.config.instances.count))"
+                    : "Blocking"
+            )
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -234,6 +256,16 @@ struct BlockingSheet: View {
         if !state.known {
             Label("Checking status…", systemImage: "circle.dotted")
                 .foregroundStyle(theme.subtle)
+        } else if state.isPartial {
+            Label(
+                """
+                Blocking on \(state.on) of \(state.total) Pi-holes. Enable \
+                to turn it on everywhere.
+                """,
+                systemImage: "shield.lefthalf.filled"
+            )
+            .font(.headline)
+            .foregroundStyle(theme.warn)
         } else if state.enabled {
             Label("Blocking is on", systemImage: "shield.fill")
                 .font(.headline)
