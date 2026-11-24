@@ -59,6 +59,10 @@ final class AppModel {
     /// (see `connectionProblem`).
     private(set) var client: PiholeClient?
 
+    /// Every instance read as one, or nil with fewer than two instances. Its
+    /// member for the active instance is `client`, so the session is shared.
+    private(set) var combinedClient: CombinedClient?
+
     /// Bumps whenever `client` is replaced. Screens key their loading tasks on
     /// it, so switching instances restarts every fetch.
     private(set) var generation = 0
@@ -129,6 +133,22 @@ final class AppModel {
 
     // MARK: - Instances
 
+    /// True when the dashboard and query log should merge every instance.
+    var isCombined: Bool {
+        config.combined && combinedClient != nil
+    }
+
+    /// Switches the read views between every instance and the active one,
+    /// and remembers the choice.
+    func setCombined(_ on: Bool) {
+        guard config.combined != on else {
+            return
+        }
+        config.combined = on
+        ConfigStore.save(config)
+        generation += 1
+    }
+
     var activeInstance: InstanceConfig? {
         config.activeInstance
     }
@@ -147,42 +167,102 @@ final class AppModel {
             }
         }
 
-        guard let instance = config.activeInstance else {
+        if let instance = config.activeInstance {
+            switch Self.makeClient(for: instance) {
+            case .success(let made):
+                client = made
+                connectionProblem = nil
+            case .failure(let problem):
+                connectionProblem = problem.messages.joined(separator: "\n")
+            }
+        } else {
             connectionProblem = nil
+        }
+        rebuildCombined()
+    }
+
+    /// Rebuilds `combinedClient` from every instance, reusing `client` for
+    /// the active one. Instances that cannot be built count as unreachable.
+    private func rebuildCombined() {
+        let previous = combinedClient
+        combinedClient = nil
+        let active = client
+        if let previous {
+            Task {
+                for member in previous.members where member.client !== active {
+                    try? await member.client.logout()
+                }
+            }
+        }
+        guard config.instances.count > 1 else {
             return
         }
+
+        var members: [CombinedClient.Member] = []
+        var unavailable: [String] = []
+        for instance in config.instances {
+            if instance.id == config.activeInstance?.id, let active {
+                members.append(.init(name: instance.name, client: active))
+            } else if case .success(let made) = Self.makeClient(for: instance) {
+                members.append(.init(name: instance.name, client: made))
+            } else {
+                unavailable.append(instance.name)
+            }
+        }
+        if !members.isEmpty {
+            combinedClient = CombinedClient(
+                members: members, unavailable: unavailable)
+        }
+    }
+
+    /// A client for `instance`, or why one cannot be made.
+    private static func makeClient(for instance: InstanceConfig)
+        -> Result<PiholeClient, ConfigProblem>
+    {
         if let problem = InstanceConfig.urlProblem(instance.url) {
-            connectionProblem = "\(instance.name): \(problem)"
-            return
+            return .failure(
+                ConfigProblem(messages: ["\(instance.name): \(problem)"]))
         }
         if instance.url == MockPihole.demoURL {
             do {
                 try MockPihole.startDemo()
             } catch {
-                connectionProblem =
-                    """
-                    The demo Pi-hole could not start: \
-                    \(error.localizedDescription)
-                    """
-                return
+                return .failure(
+                    ConfigProblem(messages: [
+                        """
+                        The demo Pi-hole could not start: \
+                        \(error.localizedDescription)
+                        """
+                    ]))
             }
         }
         guard let password = Keychain.password(for: instance.id),
             !password.isEmpty
         else {
-            connectionProblem =
-                """
-                No password saved for \(instance.name). Edit the instance in \
-                Settings.
-                """
-            return
+            return .failure(
+                ConfigProblem(messages: [
+                    """
+                    No password saved for \(instance.name). Edit the instance \
+                    in Settings.
+                    """
+                ]))
         }
-        client = PiholeClient(
-            baseURL: instance.url,
-            password: password,
-            verifyTLS: instance.verifyTLS
-        )
-        connectionProblem = nil
+        return .success(
+            PiholeClient(
+                baseURL: instance.url,
+                password: password,
+                verifyTLS: instance.verifyTLS
+            ))
+    }
+
+    /// Rebuilds the combined client after an edit that left the active
+    /// instance alone, restarting the read views when they use it.
+    private func instancesChanged() {
+        let wasCombined = isCombined
+        rebuildCombined()
+        if wasCombined || isCombined {
+            generation += 1
+        }
     }
 
     /// Creates an instance (`id` nil) or updates an existing one. A blank
@@ -213,6 +293,8 @@ final class AppModel {
 
         if next.activeInstance?.id == instanceID {
             rebuildClient()
+        } else {
+            instancesChanged()
         }
     }
 
@@ -231,6 +313,8 @@ final class AppModel {
         ConfigStore.save(config)
         if wasActive {
             rebuildClient()
+        } else {
+            instancesChanged()
         }
     }
 
@@ -312,7 +396,11 @@ final class AppModel {
     /// after returning logs in again transparently.
     func sceneDidEnterBackground() {
         isForeground = false
-        guard let client else {
+        var clients = combinedClient?.members.map(\.client) ?? []
+        if let client, !clients.contains(where: { $0 === client }) {
+            clients.append(client)
+        }
+        guard !clients.isEmpty else {
             return
         }
         let application = UIApplication.shared
@@ -324,7 +412,13 @@ final class AppModel {
             box.identifier = .invalid
         }
         Task {
-            try? await client.logout()
+            await withTaskGroup(of: Void.self) { group in
+                for client in clients {
+                    group.addTask {
+                        try? await client.logout()
+                    }
+                }
+            }
             application.endBackgroundTask(box.identifier)
             box.identifier = .invalid
         }
@@ -333,7 +427,7 @@ final class AppModel {
     func sceneDidBecomeActive() {
         isForeground = true
         // iOS may close the demo server's socket while the app is suspended.
-        if activeInstance?.url == MockPihole.demoURL {
+        if config.instances.contains(where: { $0.url == MockPihole.demoURL }) {
             try? MockPihole.startDemo()
         }
     }

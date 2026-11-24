@@ -29,14 +29,29 @@ public struct AppConfig: Codable, Equatable, Sendable {
     /// Theme name (see the app's theme list); empty means the default.
     public var theme: String
     public var instances: [InstanceConfig]
+    /// Read views (dashboard, query log) merge every instance instead of
+    /// showing the active one. Writes always go to the active instance.
+    public var combined: Bool
 
     public init(
         activeID: UUID? = nil, theme: String = "",
-        instances: [InstanceConfig] = []
+        instances: [InstanceConfig] = [], combined: Bool = false
     ) {
         self.activeID = activeID
         self.theme = theme
         self.instances = instances
+        self.combined = combined
+    }
+
+    // Hand-written so configs saved before `combined` existed still load.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        activeID = try c.decodeIfPresent(UUID.self, forKey: .activeID)
+        theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? ""
+        instances =
+            try c.decodeIfPresent([InstanceConfig].self, forKey: .instances)
+            ?? []
+        combined = try c.decodeIfPresent(Bool.self, forKey: .combined) ?? false
     }
 
     /// The active instance, falling back to the first one when `activeID`

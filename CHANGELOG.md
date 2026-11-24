@@ -8,6 +8,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Combine all Pi-holes**: with two or more instances, the instance menu can
+  merge every Pi-hole into one Dashboard and Query Log, for setups that run
+  several Pi-holes for redundancy. Unreachable Pi-holes are named and the rest
+  still show; changes still go to the active instance.
+
 ### Changed
 
 - The dashboard refreshes history, sensors and messages every 30 seconds

@@ -30,6 +30,12 @@ in every tab's toolbar.
 | Settings | **Settings** tab: connections, theme, and the full FTL config tree |
 
 The instance switcher (`s` in the TUI) is the menu at the top left of every tab.
+With two or more instances it also offers **Combine all Pi-holes** (`m` in the
+TUI): the Dashboard and Query Log then merge every instance as one network.
+Counts add up, the blocked percentage is recomputed from the totals, and
+overlapping figures (active clients, unique domains, gravity) take the largest
+value instead of a sum. An unreachable Pi-hole is named in a banner and the rest
+still show. Allow, block and every other change still go to the active instance.
 
 ### What is different from the TUI
 
@@ -132,6 +138,9 @@ the host.
   saved config, the active instance's client, the theme, and the blocking
   status. Screens key their loading tasks on `AppModel.generation`, so
   switching instances reloads everything.
+- `CombinedClient` fans the dashboard and query-log reads out to every
+  instance and merges the results (the TUI's `pihole.Group`). The merge rules
+  are pure functions in `Merge`, tested on their own.
 - Screens load in `.task`, which SwiftUI cancels when the view goes away. That
   is the equivalent of the TUI's `Focus()` / `Blur()`.
 
