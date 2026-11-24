@@ -13,7 +13,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Combine all Pi-holes**: with two or more instances, the instance menu can
   merge every Pi-hole into one Dashboard and Query Log, for setups that run
   several Pi-holes for redundancy. Unreachable Pi-holes are named and the rest
-  still show; changes still go to the active instance.
+  still show. Blocking on/off covers every Pi-hole in this mode, and the pill
+  shows how many are blocking (for example `Partial 1/2`). Other changes still
+  go to the active instance.
 
 ### Changed
 

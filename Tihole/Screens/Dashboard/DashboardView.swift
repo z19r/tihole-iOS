@@ -625,13 +625,7 @@ struct DashboardView: View {
         if case .success(let fresh) = sensorsResult {
             next.sensors = fresh
         }
-        next.unreachable =
-            combined.map { client in
-                // Keep member order, not set order.
-                (client.members.map(\.name) + client.unavailable).filter {
-                    unreachable.contains($0)
-                }
-            } ?? []
+        next.unreachable = unreachable.sorted()
         next.loaded = true
         data = next
         if slow {

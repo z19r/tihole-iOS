@@ -479,6 +479,10 @@ public struct BlockingStatus: Decodable, Sendable, Equatable {
     public var isBlocking = false
     public var status = ""
     public var timer: Double?
+    /// On a combined status: members blocking, of `total` that answered.
+    /// `total` is 0 for a single instance. Never decoded.
+    public var on = 0
+    public var total = 0
 
     public init() {}
 
